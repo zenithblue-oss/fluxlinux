@@ -224,6 +224,12 @@ object DistroRepository {
     )
     private val ubuntuComponents = glibcXfceComponents(
         "ubuntu/common/setup/setup_ubuntu_family.sh"
+    ) + DistroComponent(
+        id = "office",
+        name = "Office Suite",
+        description = "LibreOffice, PDF Viewer, Email Client.",
+        scriptName = "ubuntu/common/setup/setup_office_ubuntu.sh",
+        sizeEstimate = "500 MB"
     )
     private val kaliComponents = glibcXfceComponents(
         "kali/common/setup/setup_kali_family.sh"

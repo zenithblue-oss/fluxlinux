@@ -67,7 +67,6 @@ class DistroRepositoryTest {
             "deepin", "deepin_chroot",
             "chimera", "chimera_chroot",
             "manjaro", "manjaro_chroot",
-            "ubuntu", "ubuntu_chroot",
             "kali", "kali_chroot",
             "parrot", "parrot_chroot",
             "archlinux", "archlinux_chroot"
@@ -78,6 +77,19 @@ class DistroRepositoryTest {
             assertTrue(ids.contains("hw_accel"))
             assertTrue(ids.contains("customization"))
             assertEquals(3, ids.size)
+        }
+    }
+
+    @Test
+    fun ubuntuCards_haveBaseComponentsPlusOffice() {
+        listOf("ubuntu", "ubuntu_chroot").forEach { id ->
+            val distro = DistroRepository.supportedDistros.first { it.id == id }
+            val ids = distro.components.map { it.id }
+            assertTrue(ids.contains("xfce4_desktop"))
+            assertTrue(ids.contains("hw_accel"))
+            assertTrue(ids.contains("customization"))
+            assertTrue(ids.contains("office"))
+            assertEquals(4, ids.size)
         }
     }
 
