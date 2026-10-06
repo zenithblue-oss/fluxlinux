@@ -38,7 +38,11 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FolderShared
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Memory
@@ -69,6 +73,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +85,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,6 +99,7 @@ import com.ivarna.fluxlinux.core.data.DistroRepository
 import com.ivarna.fluxlinux.core.install.HostBootstrap
 import com.ivarna.fluxlinux.core.install.OnboardingInstallRunner
 import com.ivarna.fluxlinux.core.root.RootShell
+import com.ivarna.fluxlinux.core.system.SharedStorageAccess
 import com.ivarna.fluxlinux.core.terminal.TerminalLauncher
 import com.ivarna.fluxlinux.ui.components.CompactDistroCard
 import com.ivarna.fluxlinux.ui.components.MethodChip
@@ -104,7 +115,7 @@ import com.ivarna.fluxlinux.ui.theme.FluxDarkSurface
 import com.ivarna.fluxlinux.ui.theme.FluxHairline
 import com.ivarna.fluxlinux.ui.theme.fluxMutedText
 
-private enum class OnboardStep { Welcome, Consent, HostSetup, DistroPick, Options, Running, Done }
+private enum class OnboardStep { Welcome, Consent, HostSetup, DistroPick, Options, Storage, Running, Done }
 
 /**
  * Redesigned full first-run onboarding:
@@ -188,7 +199,17 @@ fun OnboardingFlowScreen(
                 theme = theme,
                 onTheme = { theme = it },
                 onBack = { step = OnboardStep.DistroPick },
-                onInstall = { startInstall() }
+                onInstall = {
+                    if (SharedStorageAccess.declared(context) && !SharedStorageAccess.granted()) {
+                        step = OnboardStep.Storage
+                    } else {
+                        startInstall()
+                    }
+                }
+            )
+            OnboardStep.Storage -> StoragePage(
+                onBack = { step = OnboardStep.Options },
+                onNext = { startInstall() }
             )
             OnboardStep.Running -> InstallProgressPanel(
                 percent = percent,
@@ -427,7 +448,7 @@ private fun ConsentPage(onBack: () -> Unit, onNext: () -> Unit) {
         // Step Navigation Bar
         StepHeader(
             currentStep = 1,
-            totalSteps = 4,
+            totalSteps = 5,
             title = "External Downloads",
             onBack = onBack
         )
@@ -605,7 +626,7 @@ private fun HostSetupPage(onBack: () -> Unit, onNext: () -> Unit) {
     ) {
         StepHeader(
             currentStep = 2,
-            totalSteps = 4,
+            totalSteps = 5,
             title = "Host Environment",
             onBack = onBack
         )
@@ -829,7 +850,7 @@ private fun DistroPickPage(
     ) {
         StepHeader(
             currentStep = 3,
-            totalSteps = 4,
+            totalSteps = 5,
             title = "Choose Distribution",
             onBack = onBack
         )
@@ -1042,7 +1063,7 @@ private fun OptionsPage(
     ) {
         StepHeader(
             currentStep = 4,
-            totalSteps = 4,
+            totalSteps = 5,
             title = "Desktop Options",
             onBack = onBack
         )
@@ -1469,6 +1490,125 @@ private fun DonePage(
             Spacer(Modifier.width(8.dp))
             Text("Go to Dashboard", fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp)
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STORAGE ACCESS PAGE (ivarna flavor, Android 11+, only while not yet granted)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun StoragePage(onBack: () -> Unit, onNext: () -> Unit) {
+    val context = LocalContext.current
+    val colors = MaterialTheme.colorScheme
+    var resumeKey by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) resumeKey++ }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val granted = remember(resumeKey) { SharedStorageAccess.granted() }
+    val success = Color(0xFF69F0AE)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+    ) {
+        StepHeader(currentStep = 5, totalSteps = 5, title = "Access your files", onBack = onBack)
+
+        Spacer(Modifier.height(16.dp))
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .clip(CircleShape)
+                    .background((if (granted) success else FluxAccentMagenta).copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.FolderShared,
+                    contentDescription = "Shared storage",
+                    tint = if (granted) success else FluxAccentMagenta,
+                    modifier = Modifier.size(44.dp)
+                )
+            }
+
+            Text(
+                text = "Your Linux distros can read and write your phone's storage (/sdcard: Downloads, Documents, USB drives), so you can open and save files from Linux apps.",
+                color = colors.onSurface.copy(alpha = 0.75f),
+                fontSize = 13.5.sp,
+                lineHeight = 19.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(colors.surface.copy(alpha = 0.72f))
+                    .border(1.dp, FluxHairline, RoundedCornerShape(16.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                StorageBenefit(Icons.Filled.FolderOpen, "Open files from Linux apps")
+                StorageBenefit(Icons.Filled.Save, "Save to Downloads and Documents")
+                StorageBenefit(Icons.Filled.Usb, "Use USB drives and SD cards")
+            }
+
+            if (granted) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(success.copy(alpha = 0.12f))
+                        .border(1.dp, success.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                        .semantics { liveRegion = LiveRegionMode.Polite }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = success, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Access granted", color = success, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+            } else {
+                Text(
+                    text = "You can change this later in Settings > Shared storage.",
+                    color = colors.onSurface.copy(alpha = 0.6f),
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        FluxPrimaryButton(
+            text = if (granted) "Continue" else "Grant access",
+            icon = if (granted) Icons.AutoMirrored.Filled.ArrowForward else null,
+            onClick = if (granted) onNext else { { SharedStorageAccess.openSettings(context) } }
+        )
+        if (!granted) {
+            FluxGhostButton(text = "Skip for now", onClick = onNext, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun StorageBenefit(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = FluxAccentCyan, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(text, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 

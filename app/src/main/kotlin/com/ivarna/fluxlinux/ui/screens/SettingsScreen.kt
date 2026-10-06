@@ -73,15 +73,9 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.ivarna.fluxlinux.R
+import com.ivarna.fluxlinux.core.system.SharedStorageAccess
 import com.ivarna.fluxlinux.core.utils.ThemeMode
 import com.ivarna.fluxlinux.ui.components.GlassSettingCard
-
-private fun storageAccessDeclared(context: Context): Boolean =
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && runCatching {
-        context.packageManager.getPackageInfo(
-            context.packageName, PackageManager.GET_PERMISSIONS
-        ).requestedPermissions?.contains(Manifest.permission.MANAGE_EXTERNAL_STORAGE) == true
-    }.getOrDefault(false)
 
 /**
  * Settings hub (nativecode-style): nav cards open detail pages.
@@ -165,7 +159,7 @@ fun SettingsScreen(
             )
 
             // F-Droid (ivarna) flavor only: its manifest declares the permission, Play's does not.
-            if (storageAccessDeclared(context)) {
+            if (SharedStorageAccess.declared(context)) {
                 var lifecycleKey by remember { mutableIntStateOf(0) }
                 val lifecycleOwner = LocalLifecycleOwner.current
                 DisposableEffect(lifecycleOwner) {
@@ -175,22 +169,13 @@ fun SettingsScreen(
                     lifecycleOwner.lifecycle.addObserver(observer)
                     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                 }
-                val granted = remember(lifecycleKey) { Environment.isExternalStorageManager() }
+                val granted = remember(lifecycleKey) { SharedStorageAccess.granted() }
                 SettingsNavCard(
                     icon = Icons.Default.SdStorage,
                     title = "Shared storage",
                     subtitle = if (granted) "Allowed: /sdcard and /storage (SD, USB OTG) are mounted in guests"
                     else "Not allowed: guests cannot see /sdcard or USB drives. Tap, then enable All files access",
-                    onClick = {
-                        val pkg = Uri.parse("package:${context.packageName}")
-                        runCatching {
-                            context.startActivity(
-                                Intent(AndroidSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg)
-                            )
-                        }.onFailure {
-                            context.startActivity(Intent(AndroidSettings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-                        }
-                    }
+                    onClick = { SharedStorageAccess.openSettings(context) }
                 )
             }
             if (com.ivarna.fluxlinux.core.system.PhantomProcessFixer.applicable()) {
