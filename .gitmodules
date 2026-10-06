@@ -62,3 +62,8 @@
 	path = termux-x11/src/main/cpp/xserver
 	url = https://gitlab.freedesktop.org/xorg/xserver.git
 	ignore = dirty
+[submodule "native/termux-packages"]
+	path = native/termux-packages
+	url = https://github.com/termux/termux-packages.git
+	ignore = dirty
+	shallow = true

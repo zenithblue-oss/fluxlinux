@@ -20,8 +20,7 @@ native/bootstrap/**/root/
 native/bootstrap/**/bootstrap.tar
 native/bootstrap/**/bootstrap-*.tar
 native/loader/*.apk
-# keep package-lists and README; termux-packages is a local symlink
-native/termux-packages
+# native/termux-packages is a git submodule (pinned termux-packages).
 
 # Staged host assets (large; regenerate via scripts/package_host_assets.sh)
 app/src/*/assets/bootstrap.tar
