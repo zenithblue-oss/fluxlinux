@@ -14,6 +14,13 @@
 #   CONTINUE_ON_FAIL=1   keep going after a package failure
 #   TERMUX_PACKAGES_DIR  override path to termux-packages
 #   TERMUX_DOCKER_RUN_EXTRA_ARGS  default: --network host --cpus 10 --memory 10g
+#   NO_DOCKER=1          run build-package.sh on the host (F-Droid buildserver).
+#                        Auto-set when docker is not installed. Host needs the
+#                        termux build deps, NDK=<r29 path> and a writable
+#                        /data/data/<applicationId> (see com.ivarna.fluxlinux.yml).
+#
+# FluxLinux package patches live in native/patches/<pkg>/ and are copied into
+# the termux-packages package dir before building (submodule stays pristine in git).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -35,7 +42,7 @@ LIST_DIR="$ROOT/native/package-lists"
 
 if [[ ! -d "$TP" ]]; then
   echo "error: termux-packages not found at $TP" >&2
-  echo "  ln -s ~/repos/termux-lib/termux-packages $ROOT/native/termux-packages" >&2
+  echo "  git submodule update --init native/termux-packages" >&2
   exit 1
 fi
 
@@ -79,6 +86,28 @@ echo "[*] termux-packages: $TP"
 
 "$ROOT/scripts/set_termux_package_name.sh" "$CUSTOM_PACKAGE" | tee -a "$LOG"
 
+# Overlay FluxLinux patches (native/patches/<pkg>/*.patch) onto the package dirs.
+for pdir in "$ROOT"/native/patches/*/; do
+  [[ -d "$pdir" ]] || continue
+  pkg_dir="$(ls -d "$TP"/{packages,x11-packages,root-packages}/"$(basename "$pdir")" 2>/dev/null | head -1)"
+  if [[ -z "$pkg_dir" ]]; then
+    echo "error: no termux package for patch dir $pdir" >&2
+    exit 1
+  fi
+  cp -f "$pdir"* "$pkg_dir/"
+  echo "[*] overlay $(ls "$pdir" | tr '\n' ' ')→ $pkg_dir" | tee -a "$LOG"
+done
+
+if [[ "${NO_DOCKER:-0}" != "1" ]] && ! command -v docker >/dev/null 2>&1; then
+  NO_DOCKER=1
+fi
+if [[ "${NO_DOCKER:-0}" == "1" ]]; then
+  BUILDER=(./build-package.sh)
+  echo "[*] NO_DOCKER=1 — building on host (NDK=${NDK:-<termux default>})" | tee -a "$LOG"
+else
+  BUILDER=(./scripts/run-docker.sh ./build-package.sh)
+fi
+
 export TERMUX_DOCKER_RUN_EXTRA_ARGS="${TERMUX_DOCKER_RUN_EXTRA_ARGS:---network host --cpus 10 --memory 10g}"
 echo "[*] TERMUX_DOCKER_RUN_EXTRA_ARGS=$TERMUX_DOCKER_RUN_EXTRA_ARGS" | tee -a "$LOG"
 
@@ -93,7 +122,9 @@ fi
 cd "$TP"
 # Recreate container only when forced or missing. Destroying the container drops
 # /data/data/.built-packages and forces full dep rebuilds on every script run.
-if [[ "${RECREATE_BUILDER:-0}" == "1" ]]; then
+if [[ "${NO_DOCKER:-0}" == "1" ]]; then
+  :
+elif [[ "${RECREATE_BUILDER:-0}" == "1" ]]; then
   echo "[*] RECREATE_BUILDER=1 — removing termux-package-builder" | tee -a "$LOG"
   docker rm -f termux-package-builder 2>/dev/null || true
 elif ! docker inspect termux-package-builder >/dev/null 2>&1; then
@@ -108,7 +139,7 @@ failed_pkgs=()
 
 for pkg in "${PKGS[@]}"; do
   echo "=== building $pkg for $CUSTOM_PACKAGE ($(date +%T)) ===" | tee -a "$LOG"
-  if ./scripts/run-docker.sh ./build-package.sh "${BUILD_FLAGS[@]}" "$pkg" 2>&1 | tee -a "$LOG"; then
+  if "${BUILDER[@]}" "${BUILD_FLAGS[@]}" "$pkg" 2>&1 | tee -a "$LOG"; then
     echo "OK  $pkg" | tee -a "$LOG"
     ok=$((ok + 1))
   else
