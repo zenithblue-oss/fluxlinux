@@ -1,0 +1,13 @@
+FluxLinux: ship loader32 as libloader32.so in the APK; Android 15+ 16 KB
+devices need every LOAD segment 16 KB aligned. The 64-bit loader already
+gets this from NDK r28+ defaults; the -m32 (armv7) one does not.
+--- a/src/GNUmakefile
++++ b/src/GNUmakefile
+@@ -236,6 +236,7 @@
+ $(eval $(build_loader))
+
+ ifdef HAS_LOADER_32BIT
++LOADER_LDFLAGS-m32 += -Wl,-z,max-page-size=16384
+ $(eval $(call build_loader,-m32))
+ endif
+
