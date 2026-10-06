@@ -103,10 +103,24 @@ if [[ "${NO_DOCKER:-0}" != "1" ]] && ! command -v docker >/dev/null 2>&1; then
 fi
 if [[ "${NO_DOCKER:-0}" == "1" ]]; then
   BUILDER=(./build-package.sh)
+  # As root in a user namespace, tar cannot chown to upstream tarball uids (EINVAL).
+  export TAR_OPTIONS="${TAR_OPTIONS:+$TAR_OPTIONS }--no-same-owner"
   # termux defaults JAVA_HOME to Ubuntu's JDK 17 path; fall back to the host javac.
   if [[ ! -d "${TERMUX_JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}" ]] && command -v javac >/dev/null; then
     export TERMUX_JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
   fi
+  # termux wants host clang-21 (Ubuntu image); use the distro clang otherwise.
+  if ! command -v "clang-${TERMUX_HOST_LLVM_MAJOR_VERSION:-21}" >/dev/null && command -v clang >/dev/null; then
+    export TERMUX_HOST_LLVM_MAJOR_VERSION="$(clang -dumpversion | cut -d. -f1)"
+  fi
+  # xcb-proto drops bytecode from the host python's version dir; the termux
+  # image's python matches TERMUX_PYTHON_VERSION, Debian's (3.13) does not.
+  sed -i 's|lib/python\$(python -c .*)/site-packages/xcbgen|lib/python${TERMUX_PYTHON_VERSION}/site-packages/xcbgen|' \
+    "$TP/packages/xcb-proto/build.sh"
+  # freedesktop.org answers curl with HTTP 418 (bot wall); Debian's orig tarball
+  # is byte-identical and termux still checks TERMUX_PKG_SHA256.
+  sed -i 's|https://www.freedesktop.org/software/pulseaudio/webrtc-audio-processing/webrtc-audio-processing-${TERMUX_PKG_VERSION}.tar.gz|https://deb.debian.org/debian/pool/main/w/webrtc-audio-processing/webrtc-audio-processing_${TERMUX_PKG_VERSION}.orig.tar.gz|' \
+    "$TP/packages/libwebrtc-audio-processing/build.sh"
   echo "[*] NO_DOCKER=1 — building on host (NDK=${NDK:-<termux default>})" | tee -a "$LOG"
 else
   BUILDER=(./scripts/run-docker.sh ./build-package.sh)
