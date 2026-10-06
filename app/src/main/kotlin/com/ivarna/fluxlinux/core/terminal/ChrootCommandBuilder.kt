@@ -22,8 +22,7 @@ object ChrootCommandBuilder {
         chrootPath: String = ChrootPaths.CHROOT_PATH,
         loginShell: GuestLoginShell? = null
     ): Pair<Array<String>, HashMap<String, String>> {
-        ensureHelperScript(ctx)
-        RootShell.ensureBusyBoxResolver(ctx)
+        ensureHelperScript(ctx) // also stages the BusyBox resolver
         RootShell.resolveBusyBox()
         // Shell comes from loginShell; helper resolves the real binary as root
         // (app uid cannot stat /data/local/tmp). When loginShell is null (legacy

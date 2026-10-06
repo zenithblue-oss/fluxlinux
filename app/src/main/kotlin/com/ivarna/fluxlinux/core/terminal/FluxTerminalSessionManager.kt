@@ -17,6 +17,9 @@ object FluxTerminalSessionManager {
 
     const val MAX_TABS = SessionRegistry.MAX_TABS
 
+    /** Guest opens between the tab-limit check and SessionRegistry.add (main thread only). */
+    private var pendingOpens = 0
+
     /**
      * Outcome of a session-open request — lets UI show distinct toasts
      * (R3: tab limit vs host prepare vs open failure).
@@ -65,25 +68,41 @@ object FluxTerminalSessionManager {
         distroId: String? = null,
         onResult: (SessionOpenResult) -> Unit = {}
     ) {
-        if (!SessionRegistry.hasFreeTab()) {
+        // Count in-flight opens too, so rapid taps cannot pass the check before
+        // any add lands. SessionRegistry.add still rejects as a backstop.
+        // pendingOpens is touched on the main thread only (here + mainHandler posts).
+        if (SessionRegistry.sessionCount + pendingOpens >= MAX_TABS) {
             onResult(SessionOpenResult.MAX_TABS)
             return
         }
-        TerminalLauncher.prepareHost(ctx) { ok ->
-            if (!ok) {
-                onResult(SessionOpenResult.HOST_PREPARE_FAILED)
-                return@prepareHost
-            }
-            onResult(
-                if (GuestSessionFactory.openSession(
-                        ctx, type, title, shellCmd, method, distroId
-                    )
-                ) {
-                    SessionOpenResult.OPENED
-                } else {
-                    SessionOpenResult.OPEN_FAILED
+        pendingOpens++
+        // Host prep + argv/env build (su probe for chroot) off main; only the
+        // TerminalSession construction + registry add run on main (needs Looper).
+        TerminalLauncher.executor.execute {
+            // Chroot never uses the host $PREFIX — skip host prep (proot keeps it).
+            val opener = runCatching {
+                if (method != "chroot" && !TerminalLauncher.prepareHostBlocking(ctx)) {
+                    TerminalLauncher.mainHandler.post {
+                        pendingOpens--
+                        onResult(SessionOpenResult.HOST_PREPARE_FAILED)
+                    }
+                    return@execute
                 }
-            )
+                GuestSessionFactory.prepareSession(ctx, type, title, shellCmd, method, distroId)
+            }.getOrNull()
+            TerminalLauncher.mainHandler.post {
+                val opened = try {
+                    opener?.invoke() == true
+                } finally {
+                    pendingOpens--
+                }
+                onResult(if (opened) SessionOpenResult.OPENED else SessionOpenResult.OPEN_FAILED)
+                // Guest audio is a TCP client of host Pulse; start it after the shell is up.
+                if (opened) {
+                    val app = ctx.applicationContext
+                    Thread { PulseHost.ensureStarted(app) }.start()
+                }
+            }
         }
     }
 

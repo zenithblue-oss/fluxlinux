@@ -30,8 +30,22 @@ object GuestSessionFactory {
         shellCmd: String = "exec zsh",
         method: String,
         distroId: String? = null
-    ): Boolean {
-        if (!SessionRegistry.hasFreeTab()) return false
+    ): Boolean = prepareSession(ctx, type, title, shellCmd, method, distroId)?.invoke() ?: false
+
+    /**
+     * Background half of [openSession]: repairs + argv/env build (chroot may block on su).
+     * Returns the opener, which MUST run on the main thread (TerminalSession needs its Looper);
+     * null when no tab is free.
+     */
+    fun prepareSession(
+        ctx: Context,
+        type: String,
+        title: String = type,
+        shellCmd: String = "exec zsh",
+        method: String,
+        distroId: String? = null
+    ): (() -> Boolean)? {
+        if (!SessionRegistry.hasFreeTab()) return null
         // Patch guest .zshrc if it still hard-sources missing oh-my-zsh / pokemon,
         // or create a missing Flux profile (Alpine installs that never wrote one).
         GuestZshrcRepair.repairIfNeeded(ctx, method, distroId)
@@ -52,18 +66,20 @@ object GuestSessionFactory {
         val sessionExec = if (isChroot) com.ivarna.fluxlinux.core.root.ChrootPaths.SESSION_EXEC else shell
 
         val env = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
-        val session = TerminalSession(sessionExec, cwd, args, env, 10000, SessionRegistry.sessionClient())
-        return SessionRegistry.add(
-            ctx,
-            SessionRegistry.ManagedSession(
-                session,
-                type,
-                title,
-                method,
-                distroId = distroId,
-                iconRes = DistroRepository.iconResFor(distroId) ?: R.drawable.ic_terminal
+        return {
+            val session = TerminalSession(sessionExec, cwd, args, env, 10000, SessionRegistry.sessionClient())
+            SessionRegistry.add(
+                ctx,
+                SessionRegistry.ManagedSession(
+                    session,
+                    type,
+                    title,
+                    method,
+                    distroId = distroId,
+                    iconRes = DistroRepository.iconResFor(distroId) ?: R.drawable.ic_terminal
+                )
             )
-        )
+        }
     }
 
     /**

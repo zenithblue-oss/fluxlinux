@@ -10,6 +10,7 @@ import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -44,6 +45,12 @@ object RootShell {
 
     @Volatile
     private var cachedBusyBoxPath: String? = null
+
+    /** [ensureChrootHelper] succeeded this process (helper + resolver staged). */
+    private val chrootHelperReady = AtomicBoolean(false)
+
+    /** Re-stage on next [ensureChrootHelper] (an uninstall script may delete the helper). */
+    fun invalidateChrootHelper() = chrootHelperReady.set(false)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public API
@@ -426,14 +433,17 @@ object RootShell {
      * Lives here (not in ChrootCommandBuilder) so RootShell stays su-only and the
      * RootShell ↔ ChrootCommandBuilder cycle stays broken (plan §2.5).
      */
+    @Synchronized // warm-up (TerminalToolSelector) and session prep may race on the cp
     fun ensureChrootHelper(ctx: Context): Boolean {
+        if (chrootHelperReady.get()) return true
         return try {
-            ensureBusyBoxResolver(ctx)
+            val bbOk = ensureBusyBoxResolver(ctx)
             val existing = capture(
                 "head -n 2 ${ChrootPaths.CHROOT_HELPER} 2>/dev/null || true",
                 timeoutMs = 4_000L
             )
             if (existing.contains(ChrootPaths.CHROOT_HELPER_VERSION)) {
+                chrootHelperReady.set(bbOk)
                 return true
             }
 
@@ -465,6 +475,7 @@ object RootShell {
                 return false
             }
             Log.i(TAG, "ensureChrootHelper staged ${ChrootPaths.CHROOT_HELPER}")
+            chrootHelperReady.set(bbOk)
             true
         } catch (e: Exception) {
             Log.w(TAG, "ensureChrootHelper failed: ${e.message}")

@@ -82,7 +82,7 @@ object PulseHost {
         }
     }
 
-    /** Cheap once-per-process start used by [TerminalLauncher.prepareHost]. */
+    /** Cheap once-per-process start, fired after a guest session opens. Blocking — bg thread. */
     fun ensureStarted(ctx: Context) {
         if (!startedThisProcess.compareAndSet(false, true)) return
         val out = runSupervisor(ctx)

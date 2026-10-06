@@ -66,12 +66,18 @@ fun AudioSettingsScreen(
     var logText by remember { mutableStateOf("") }
     var showLogs by remember { mutableStateOf(false) }
 
-    fun loadStatus() {
+    fun loadStatus(startIfStopped: Boolean = false) {
         if (busy) return
         busy = true
         scope.launch {
             val (s, log) = withContext(Dispatchers.IO) {
-                PulseHost.query(context) to PulseHost.readLog(context)
+                var q = PulseHost.query(context)
+                // prepareHost no longer starts Pulse; this screen does it on open.
+                if (startIfStopped && !q.running) {
+                    PulseHost.ensureStarted(context)
+                    q = PulseHost.query(context)
+                }
+                q to PulseHost.readLog(context)
             }
             status = s
             logText = log
@@ -103,7 +109,7 @@ fun AudioSettingsScreen(
         }
     }
 
-    LaunchedEffect(Unit) { loadStatus() }
+    LaunchedEffect(Unit) { loadStatus(startIfStopped = true) }
 
     val running = status?.running == true
     val healthy = status?.healthy == true

@@ -242,8 +242,14 @@ object TermuxHostPaths {
      * Create host tmp dirs used by proot + X11.
      * [PROOT_TMP] is private (0700). Shared [TMPDIR] is 0777 so guest uid 1000
      * can write `/tmp` under `--shared-tmp` even without uid mapping.
+     * Full pass once per process; later calls only re-run if a dir went missing
+     * (re-extract / guest `rm`).
      */
     fun ensureHostTmpDirs(filesDir: File = File(FILES)) {
+        if (hostTmpDirsDone.get() &&
+            File(filesDir, "usr/tmp/.X11-unix").isDirectory &&
+            File(filesDir, "proot-tmp").isDirectory
+        ) return
         val shared = File(filesDir, "usr/tmp").also { it.mkdirs() }
         File(shared, ".X11-unix").mkdirs()
         val glue = File(filesDir, "proot-tmp").also { it.mkdirs() }
@@ -254,7 +260,10 @@ object TermuxHostPaths {
         glue.setWritable(true, true)
         glue.setExecutable(true, true)
         restoreAppDataSelinux(shared, filesDir)
+        hostTmpDirsDone.set(true)
     }
+
+    private val hostTmpDirsDone = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /**
      * Host PREFIX/tmp must keep the app_data_file label. A leftover tmpfs:s0

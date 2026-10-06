@@ -110,6 +110,15 @@ fun TerminalToolSelector(
     val hostGroup = groups.firstOrNull { it.method == "host" }
     val prootCount = groups.firstOrNull { it.method == "proot" }?.rows?.size ?: 0
     val chrootCount = groups.firstOrNull { it.method == "chroot" }?.rows?.size ?: 0
+    // Root granted (probe above) + chroot installed: warm helper + BusyBox off main
+    // so the first chroot open skips su staging/probes. Never prompts non-root users.
+    val warmChroot = rootAvailable && chrootCount > 0
+    LaunchedEffect(warmChroot) {
+        if (warmChroot) {
+            val app = context.applicationContext
+            Thread { RootShell.ensureChrootHelper(app); RootShell.resolveBusyBox() }.start()
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(Modifier.height(4.dp))

@@ -27,8 +27,8 @@ import java.util.concurrent.Executors
 object TerminalLauncher {
 
     private const val TAG = "TerminalLauncher"
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
-    private val mainHandler = Handler(Looper.getMainLooper())
+    internal val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    internal val mainHandler = Handler(Looper.getMainLooper())
 
     /** Marker written by setup_termux.sh; checked by host status cards. */
     fun isHostSetupDone(ctx: Context): Boolean =
@@ -179,9 +179,9 @@ object TerminalLauncher {
     ): Boolean {
         // Fast path (proot-opt-01): host already set up + bootstrap extracted →
         // skip ensureExtracted / deployScripts / tree sweeps entirely and return
-        // immediately (< 5ms). Only PulseHost runs (AtomicBoolean-guarded no-op).
+        // immediately (< 5ms). Pulse is started after a guest session opens
+        // (FluxTerminalSessionManager) and by the desktop start_gui*.sh scripts.
         if (!forceHostSetup && isHostSetupDone(ctx) && BootstrapInstaller.isExtracted(ctx)) {
-            PulseHost.ensureStarted(ctx)
             return true
         }
         // Corrupt/partial tree (no valid marker) → clean re-extract (containers preserved).
@@ -191,8 +191,6 @@ object TerminalLauncher {
         if (!HostScriptDeployer.deployScripts(ctx)) {
             return false
         }
-        // Host Pulse is independent of XFCE. Cheap if already running.
-        PulseHost.ensureStarted(ctx)
         if (!forceHostSetup && isHostSetupDone(ctx)) return true
 
         val marker = TermuxHostPaths.setupTermuxMarker(ctx)

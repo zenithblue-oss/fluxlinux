@@ -61,7 +61,8 @@ object UninstallSessionFactory {
                         "FLUX_DISTRO_ID" to distro.id
                     ),
                     wrapWinch = false,
-                    onClosed = onClosed
+                    // uninstall_debian13_chroot.sh removes the shared helper.
+                    onClosed = { RootShell.invalidateChrootHelper(); onClosed(it) }
                 )
             }
             else -> {
