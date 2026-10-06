@@ -36,15 +36,22 @@ object HostScriptDeployer {
     /** Marker file: content is the deployed [DEPLOY_VERSION]. */
     internal fun deployMarker(ctx: Context): File = File(ctx.filesDir, MARKER_REL)
 
+    /** Version + install time: every app update (even same versionCode) redeploys scripts. */
+    internal fun deployStamp(ctx: Context): String {
+        val t = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).lastUpdateTime }
+            .getOrDefault(0L)
+        return "$DEPLOY_VERSION|$t"
+    }
+
     internal fun isDeployed(ctx: Context): Boolean {
         val marker = deployMarker(ctx)
-        return marker.isFile && marker.readText().trim() == DEPLOY_VERSION.toString()
+        return marker.isFile && marker.readText().trim() == deployStamp(ctx)
     }
 
     internal fun markDeployed(ctx: Context) {
         val marker = deployMarker(ctx)
         marker.parentFile?.mkdirs()
-        marker.writeText(DEPLOY_VERSION.toString())
+        marker.writeText(deployStamp(ctx))
     }
 
     private data class HostScript(
@@ -173,6 +180,8 @@ object HostScriptDeployer {
      * @return false when any required deploy step fails (fail-closed contract)
      */
     fun deployScripts(ctx: Context, force: Boolean = false): Boolean {
+        // Cheap (one small file) and must run even on the warm path: app updates move nativeLibraryDir.
+        runCatching { TermuxHostPaths.refreshHostEnvIfStale(ctx.filesDir, ctx) }
         if (!force && isDeployed(ctx)) return true
         return try {
             val homeDir = File(ctx.filesDir, "home").also { it.mkdirs() }

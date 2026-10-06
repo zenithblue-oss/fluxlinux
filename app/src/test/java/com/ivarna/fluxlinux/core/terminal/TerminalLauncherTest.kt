@@ -25,6 +25,8 @@ class TerminalLauncherTest {
             File(files, "home/.fluxlinux/setup_termux.done").writeText("ok")
 
             val ctx = FakeContext(files, "$files/lib")
+            // Current-install deploy stamp: warm path only re-checks host env + stamp.
+            HostScriptDeployer.markDeployed(ctx)
 
             val start = System.nanoTime()
             assertTrue(TerminalLauncher.prepareHostBlocking(ctx))
@@ -33,9 +35,8 @@ class TerminalLauncherTest {
             // Allow a comfortable margin for JVM startup noise; the old path
             // took multiple seconds on device.
             assertTrue("fast-path took ${ms}ms", ms < 1000)
-            // No deploy marker may be created by the fast path, proving the
-            // asset loops were skipped.
-            assertFalse(HostScriptDeployer.deployMarker(ctx).exists())
+            // Host env was refreshed to the current nativeLibraryDir.
+            assertTrue(TermuxHostPaths.hostEnvFile(files).readText().contains("$files/lib"))
         } finally {
             dir.deleteRecursively()
         }
@@ -53,7 +54,7 @@ class TerminalLauncherTest {
             // call must short-circuit without touching assets (which throw here).
             val marker = HostScriptDeployer.deployMarker(ctx)
             marker.parentFile?.mkdirs()
-            marker.writeText(HostScriptDeployer.DEPLOY_VERSION.toString())
+            marker.writeText(HostScriptDeployer.deployStamp(ctx))
             assertTrue(HostScriptDeployer.deployScripts(ctx))
             assertTrue(HostScriptDeployer.isDeployed(ctx))
             // A stale/old version invalidates the marker (forces re-deploy).

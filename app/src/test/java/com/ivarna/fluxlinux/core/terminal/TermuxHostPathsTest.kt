@@ -45,6 +45,25 @@ class TermuxHostPathsTest {
     }
 
     @Test
+    fun refreshHostEnvIfStale_rewritesAfterNativeLibDirChange() {
+        val dir = createTempDir()
+        try {
+            File(dir, "usr").mkdirs()
+            val old = FakeContext(dir, "/data/app/~~old/pkg/lib/arm64")
+            val new = FakeContext(dir, "/data/app/~~new/pkg/lib/arm64")
+            TermuxHostPaths.writeHostEnvFile(dir, old)
+            assertFalse(TermuxHostPaths.refreshHostEnvIfStale(dir, old))
+            assertTrue(TermuxHostPaths.refreshHostEnvIfStale(dir, new))
+            val text = TermuxHostPaths.hostEnvFile(dir).readText()
+            assertTrue(text.contains("~~new"))
+            assertFalse(text.contains("~~old"))
+            assertFalse(TermuxHostPaths.refreshHostEnvIfStale(dir, new))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun derivedPaths_followPackage() {
         assertEquals("/data/data/${TermuxHostPaths.PACKAGE}/files/usr", TermuxHostPaths.PREFIX)
         assertEquals("/data/data/${TermuxHostPaths.PACKAGE}/files/home", TermuxHostPaths.HOME)

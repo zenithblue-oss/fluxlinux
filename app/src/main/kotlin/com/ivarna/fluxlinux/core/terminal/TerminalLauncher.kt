@@ -182,7 +182,8 @@ object TerminalLauncher {
         // immediately (< 5ms). Pulse is started after a guest session opens
         // (FluxTerminalSessionManager) and by the desktop start_gui*.sh scripts.
         if (!forceHostSetup && isHostSetupDone(ctx) && BootstrapInstaller.isExtracted(ctx)) {
-            return true
+            // After an app update this refreshes host env + scripts (marker is stamped per install).
+            return HostScriptDeployer.deployScripts(ctx)
         }
         // Corrupt/partial tree (no valid marker) → clean re-extract (containers preserved).
         if (!BootstrapInstaller.ensureExtracted(ctx, onProgress = progress)) {
