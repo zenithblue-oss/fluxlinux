@@ -57,11 +57,15 @@ enum class GuestLoginShell(val id: String) {
          * Proot in-guest cascade. Preference-first, then the other of
          * {bash, zsh}, then sh. Checks the `/bin` directory only (today's contract).
          */
-        fun prootLoginCascade(preferred: GuestLoginShell): String {
+        fun prootLoginCascade(preferred: GuestLoginShell): String =
+            "/bin/sh -lc '${prootLoginScript(preferred)}'"
+
+        /** Script body of [prootLoginCascade] (argv form for the direct proot launch). */
+        fun prootLoginScript(preferred: GuestLoginShell): String {
             val first = preferred.id
             val second = if (preferred == ZSH) "bash" else "zsh"
-            return "/bin/sh -lc 'if [ -x /bin/$first ]; then exec /bin/$first -l; " +
-                "elif [ -x /bin/$second ]; then exec /bin/$second -l; else exec /bin/sh -l; fi'"
+            return "if [ -x /bin/$first ]; then exec /bin/$first -l; " +
+                "elif [ -x /bin/$second ]; then exec /bin/$second -l; else exec /bin/sh -l; fi"
         }
     }
 }

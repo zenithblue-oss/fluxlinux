@@ -1,6 +1,8 @@
 package com.ivarna.fluxlinux.core.terminal
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -135,5 +137,45 @@ class ProotCommandBuilderTest {
         assertFalse(joined.contains("/bin/sh -c '"))
         assertTrue(joined.contains("env -i"))
         assertTrue(joined.indexOf("if [ -x /bin/zsh ]") < joined.indexOf("if [ -x /bin/bash ]"))
+    }
+
+    @Test
+    fun direct_launch_builds_proot_argv_without_python() {
+        val prefix = kotlin.io.path.createTempDirectory("flux-direct").toFile()
+        val container = java.io.File(prefix, "var/lib/proot-distro/containers/debian")
+        val rootfs = java.io.File(container, "rootfs")
+        java.io.File(rootfs, "etc").mkdirs()
+        java.io.File(rootfs, "etc/passwd").writeText(
+            "root:x:0:0:root:/root:/bin/bash\nflux:x:1000:1000::/home/flux:/bin/zsh\n"
+        )
+        java.io.File(container, "sysdata/sys_empty").mkdirs()
+        val proot = "/data/app/x/lib/arm64/libproot.so"
+        try {
+            val (args, env) = ProotCommandBuilder.buildDirect(
+                proot = proot, prefix = prefix.path, termuxHome = "${prefix.path}/home",
+                pkg = "com.example", distro = "debian", user = "flux",
+                guestCmd = listOf("/usr/bin/env", "-i", "/bin/sh", "-l"),
+                hostEnv = mapOf("PROOT_LOADER" to "/nld/libloader.so", "LD_PRELOAD" to "x"),
+                bindKgsl = true
+            )!!
+            assertEquals(proot, args[0])
+            assertTrue(args.contains("--rootfs=${rootfs.path}"))
+            assertTrue(args.contains("--link2symlink"))
+            assertTrue(args.contains("--kill-on-exit"))
+            assertTrue(args.contains("--change-id=1000:1000"))
+            assertTrue(args.contains("--bind=${prefix.path}/tmp:/tmp"))
+            assertTrue(args.contains("--bind=/dev/kgsl-3d0"))
+            assertFalse(args.any { it.contains("python") || it.contains("proot-distro login") })
+            assertEquals("/nld/libloader.so", env["PROOT_LOADER"])
+            assertFalse(env.containsKey("LD_PRELOAD"))
+            // Unknown layout → null (caller falls back to python).
+            assertNull(
+                ProotCommandBuilder.buildDirect(
+                    proot, prefix.path, "/h", "p", "alpine", "flux", emptyList(), emptyMap()
+                )
+            )
+        } finally {
+            prefix.deleteRecursively()
+        }
     }
 }

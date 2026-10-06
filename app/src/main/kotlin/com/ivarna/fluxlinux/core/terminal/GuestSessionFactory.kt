@@ -61,9 +61,9 @@ object GuestSessionFactory {
         )
 
         val isChroot = method == "chroot"
-        val shell = TermuxHostPaths.libBash(ctx).absolutePath
         val cwd = if (isChroot) "/" else TermuxHostPaths.homeDir(ctx).absolutePath
-        val sessionExec = if (isChroot) com.ivarna.fluxlinux.core.root.ChrootPaths.SESSION_EXEC else shell
+        // proot argv[0] is the executable: libbash (legacy) or libproot (direct).
+        val sessionExec = if (isChroot) com.ivarna.fluxlinux.core.root.ChrootPaths.SESSION_EXEC else args[0]
 
         val env = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
         return {
@@ -164,8 +164,7 @@ object GuestSessionFactory {
             ctx, guestPayload, user = user, method = method, distroId = distro.id
         )
         val isChroot = method == "chroot"
-        val shell = TermuxHostPaths.libBash(ctx).absolutePath
-        val sessionExec = if (isChroot) com.ivarna.fluxlinux.core.root.ChrootPaths.SESSION_EXEC else shell
+        val sessionExec = if (isChroot) com.ivarna.fluxlinux.core.root.ChrootPaths.SESSION_EXEC else args[0]
         val cwd = if (isChroot) "/" else TermuxHostPaths.homeDir(ctx).absolutePath
         val env = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
         val session = TerminalSession(sessionExec, cwd, args, env, 10000, SessionRegistry.sessionClient())

@@ -69,6 +69,9 @@ fun TerminalSettingsScreen(
     var guestShellZsh by remember {
         mutableStateOf(TerminalPreferences.preferZsh(context))
     }
+    var legacyProot by remember {
+        mutableStateOf(TerminalPreferences.isLegacyProotLauncher(context))
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -263,6 +266,42 @@ fun TerminalSettingsScreen(
                         modifier = Modifier.semantics {
                             contentDescription =
                                 "Guest login shell: ${if (guestShellZsh) "zsh" else "bash"}"
+                        }
+                    )
+                }
+            }
+
+            GlassSettingCard {
+                Row(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Legacy proot launcher",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Open proot terminals through proot-distro (python). Slower; use only if the default launch fails.",
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
+                            color = fluxMutedText()
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    FluxSwitch(
+                        checked = legacyProot,
+                        onCheckedChange = {
+                            legacyProot = it
+                            TerminalPreferences.setLegacyProotLauncher(context, it)
+                        },
+                        modifier = Modifier.semantics {
+                            contentDescription = "Legacy proot launcher"
                         }
                     )
                 }

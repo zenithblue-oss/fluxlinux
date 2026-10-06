@@ -13,6 +13,7 @@ object TerminalPreferences {
     private const val KEY_FONT_SIZE = "font_size"
     private const val KEY_SHOW_EXTRA_KEYS = "show_extra_keys"
     private const val KEY_GUEST_LOGIN_SHELL = "guest_login_shell"
+    private const val KEY_LEGACY_PROOT_LAUNCHER = "legacy_proot_launcher"
 
     const val FONT_MIN = 10
     const val FONT_MAX = 48
@@ -46,6 +47,14 @@ object TerminalPreferences {
         prefs(context).edit()
             .putString(KEY_GUEST_LOGIN_SHELL, shell.id)
             .apply()
+    }
+
+    /** true → open proot terminals via python `proot-distro login` (old path). */
+    fun isLegacyProotLauncher(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LEGACY_PROOT_LAUNCHER, false)
+
+    fun setLegacyProotLauncher(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LEGACY_PROOT_LAUNCHER, enabled).apply()
     }
 
     fun preferZsh(context: Context): Boolean =
