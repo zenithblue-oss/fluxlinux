@@ -45,7 +45,9 @@ Status: [x] implemented (stable `mesa-*` pick, sha256, pinned fallback, offline 
 
 ## 4. MediaTek Mali Valhall v10+ (PanVK)
 
-Status: [ ]
+Status: [x] Verified on Poco X6 Pro (Mali-G615 MC6, Debian proot): auto-install via app UI, marker `/etc/fluxlinux/panvk_version` = `0.1.0-beta.16`, `vulkaninfo --summary`: `deviceName = Mali-G615 MC6`, `driverID = DRIVER_ID_MESA_PANVK`, `driverInfo = PanVK-kbase beta.16 (Mesa 26.3.0-devel)`. Lenovo TB336FU (Mali-G57, v9): Hardware Acceleration dialog shows "GPU driver (PanVK): Mali GPU is pre-Valhall-v10 ...", no install. Alpine (musl) on Poco: dialog shows "needs a glibc distro (alpine is musl)".
+
+Implementation notes: `core/gpu/PanvkInstaller.kt` (second config of `DriverRelease`, prereleases allowed because every driver tag is a prerelease; one universal ICD so newest `g*-csf-*` tag wins, no per-GPU tag). Arch from `/sys/class/misc/mali0/device/gpuinfo` (model table, else hex product id `>>12`), else CSF sysfs (`firmware_config`) = v10+, JM = pre-v10 (Lenovo gpuinfo is empty). glibc distros only (alpine/chimera skip). The glibc `.so` needs a shared `libSPIRV-Tools.so` and libwayland 1.24 symbols that Debian 13 lacks: guest script builds a small shim from the static spirv-tools archives with gcc (apt guests only; other distros fall back to VirGL if the ICD does not load). `.so` -> `/usr/local/lib64/libvulkan_panfrost.so` (the path the ICD json names), ICD -> `/usr/share/vulkan/icd.d/`. /dev/mali0 is world-rw and already visible in proot (`--bind=/dev`), no extra bind needed.
 
 - Repo: `https://github.com/zenithblue-oss/panvk-kbase-android`. Releases mix apps and drivers (`panplay-*`, `panprobe-*`, `g615-v11-csf-v0.1.0-beta.N`), so `/releases/latest` is NOT reliable: list releases, pick newest tag matching `^g\d+-v\d+-csf-`.
 - Assets (beta.16): `libvulkan_panfrost-glibc-aarch64.so` (guest/proot), `libvulkan_panfrost-android-aarch64.so` (bionic), `panfrost_icd.aarch64.json`, `SHA256SUMS`. Use the glibc `.so` + ICD json in guest (e.g. `/usr/share/vulkan/icd.d/`, fix `library_path`).
@@ -58,7 +60,7 @@ Status: [ ]
 
 ## 5. Make guests and desktop use the installed driver
 
-Status: [~] Adreno done and verified on OnePlus 13R (marker -> MESA_LOADER_DRIVER_OVERRIDE=kgsl in terminal; XFCE desktop terminal `glxinfo -B`: freedreno / FD750, Mesa 26.3.0-devel, direct rendering yes, Accelerated yes; `glxgears` 119 FPS). PanVK pending.
+Status: [x] Adreno done and verified on OnePlus 13R (marker -> MESA_LOADER_DRIVER_OVERRIDE=kgsl in terminal; XFCE desktop terminal `glxinfo -B`: freedreno / FD750, Mesa 26.3.0-devel, direct rendering yes, Accelerated yes; `glxgears` 119 FPS). PanVK verified on Poco X6 Pro (Debian proot): marker + `/etc/profile.d/flux-gpu.sh` and `apply_gpu_env.sh` export `MESA_LOADER_DRIVER_OVERRIDE=zink`, `GALLIUM_DRIVER=zink`, `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/panfrost_icd.aarch64.json`, `MESA_VK_WSI_DEBUG=sw` (gpu_mode `panvk`). XFCE desktop terminal `glxinfo -B`: `OpenGL renderer string: zink Vulkan 1.4(Mali-G615 MC6 (MESA_PANVK))`, direct rendering yes, Accelerated yes, OpenGL 4.6 compat; `glxgears` 92 FPS (8 s). No marker -> virgl/llvmpipe path unchanged.
 
 - Goal: terminal sessions and desktop start scripts export the right env for the installed driver; fall back to llvmpipe when none installed.
 - Env (verify per driver README before coding):

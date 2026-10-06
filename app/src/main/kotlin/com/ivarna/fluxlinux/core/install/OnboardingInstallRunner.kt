@@ -545,7 +545,7 @@ class OnboardingInstallRunner(private val ctx: Context) {
         )
         // Adreno: app picks the stable Turnip release (empty map elsewhere).
         val driverEnv = GpuDriverInstaller.guestEnv(appCtx, profile.distroId)
-        driverEnv["FLUX_TURNIP_MSG"]?.let { log(phases, phaseIndex, onProgress, it) }
+        (driverEnv["FLUX_TURNIP_MSG"] ?: driverEnv["FLUX_PANVK_MSG"])?.let { log(phases, phaseIndex, onProgress, it) }
         val ok = try {
             if (method == "chroot") {
                 val path = chrootPath

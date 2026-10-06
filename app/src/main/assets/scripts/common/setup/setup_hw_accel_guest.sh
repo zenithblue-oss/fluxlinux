@@ -203,7 +203,7 @@ else
 fi
 
 ARCH=$(flux_gpu_arch)
-if [ "$MODE" = turnip ] && [ "$ARCH" != arm64 ] && [ "$ARCH" != aarch64 ]; then
+if { [ "$MODE" = turnip ] || [ "$MODE" = panvk ]; } && [ "$ARCH" != arm64 ] && [ "$ARCH" != aarch64 ]; then
     echo "FluxLinux: [WARN] Turnip not available for arch=$ARCH — VirGL."
     MODE=virgl
     VENDOR_HINT="${VENDOR_HINT}+arch-fallback"
@@ -245,7 +245,95 @@ if [ "$MODE" = turnip ]; then
     fi
 fi
 
-if [ "$MODE" = turnip ]; then
+# ── PanVK (MediaTek Mali v10+) ───────────────────────────────────────────────
+
+# The glibc .so is built against a newer userland than Debian/Ubuntu ship: it
+# NEEDs a shared libSPIRV-Tools.so (distros ship only static) and libwayland
+# 1.24 symbols. On apt guests build a small shim from the static archives (+ inert
+# wayland stubs, X11 WSI never calls them). Returns 0 when the ICD loads.
+_flux_panvk_deps() {
+    _l=/usr/local/lib64/libvulkan_panfrost.so
+    _bad() { ldd -r "$_l" 2>&1 | grep -E 'not found|undefined symbol'; }
+    [ -z "$(_bad)" ] && return 0
+    command -v apt-get >/dev/null 2>&1 || return 1
+    echo "FluxLinux: PanVK needs extra libs, building shim (gcc + spirv-tools)..."
+    _pkg_add spirv-tools gcc libc6-dev || return 1
+    _m=$(gcc -print-multiarch 2>/dev/null || echo aarch64-linux-gnu)
+    _wl=$(ls /usr/lib/$_m/libwayland-client.so.0 2>/dev/null | head -1)
+    _defs=""
+    grep -q wl_fixes_interface "$_wl" 2>/dev/null || _defs="$_defs -DSTUB_FIXES"
+    grep -q wl_display_dispatch_queue_timeout "$_wl" 2>/dev/null || _defs="$_defs -DSTUB_TIMEOUT"
+    cat > /tmp/panvk_shim.c << 'SHIMEOF'
+#ifdef STUB_FIXES
+struct wl_interface { const char *name; int version; int method_count; const void *methods; int event_count; const void *events; };
+const struct wl_interface wl_fixes_interface = {"wl_fixes", 1, 0, 0, 0, 0};
+#endif
+#ifdef STUB_TIMEOUT
+int wl_display_dispatch_queue_timeout(void *d, void *q, const void *t) { return -1; }
+#endif
+SHIMEOF
+    _a=/usr/lib/$_m
+    # shellcheck disable=SC2086
+    gcc -shared -fPIC $_defs -x c -o /usr/local/lib/libSPIRV-Tools.so /tmp/panvk_shim.c -x none \
+        -Wl,--whole-archive $_a/libSPIRV-Tools.a $_a/libSPIRV-Tools-opt.a -Wl,--no-whole-archive \
+        -Wl,-soname,libSPIRV-Tools.so $_a/libstdc++.so.6 || return 1
+    rm -f /tmp/panvk_shim.c
+    ldconfig 2>/dev/null || true
+    [ -z "$(_bad)" ]
+}
+
+# FLUX_PANVK_1 = latest, FLUX_PANVK_2 = pinned fallback, each
+# "version so_url so_sha icd_url icd_sha". glibc .so → /usr/local/lib64 (the
+# path the ICD json names), ICD → /usr/share/vulkan/icd.d. Marker = version.
+if [ "$MODE" = panvk ]; then
+    PANVK_OK=""
+    PANVK_TOUCHED=""
+    if [ -e /lib/ld-musl-aarch64.so.1 ] || [ -e /usr/lib/ld-musl-aarch64.so.1 ]; then
+        FLUX_PANVK_MSG="PanVK needs a glibc distro — software rendering stays"
+        rm -f /etc/fluxlinux/panvk_version
+    else
+        for _n in 1 2; do
+            eval "_spec=\${FLUX_PANVK_$_n:-}"
+            [ -n "$_spec" ] || continue
+            # shellcheck disable=SC2086
+            set -- $_spec
+            echo "FluxLinux: Downloading PanVK $1..."
+            if _flux_gpu_fetch "$2" /tmp/panvk.so \
+                && [ "$(sha256sum /tmp/panvk.so | cut -d' ' -f1)" = "$3" ] \
+                && _flux_gpu_fetch "$4" /tmp/panvk.json \
+                && [ "$(sha256sum /tmp/panvk.json | cut -d' ' -f1)" = "$5" ]; then
+                PANVK_TOUCHED=1
+                mkdir -p /usr/local/lib64 /usr/share/vulkan/icd.d
+                install -m 755 /tmp/panvk.so /usr/local/lib64/libvulkan_panfrost.so
+                install -m 644 /tmp/panvk.json /usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+                if _flux_panvk_deps; then
+                    printf '%s\n' "$1" > /etc/fluxlinux/panvk_version
+                    PANVK_OK=$1
+                    break
+                fi
+                rm -f /etc/fluxlinux/panvk_version /usr/local/lib64/libvulkan_panfrost.so \
+                    /usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+                FLUX_PANVK_MSG="PanVK driver cannot load on this distro (missing libs) — software rendering stays"
+                continue
+            fi
+            echo "FluxLinux: [WARN] PanVK $1 download or sha256 failed."
+        done
+        # Offline/failed re-run must not break a working install.
+        if [ -z "$PANVK_OK" ] && [ -z "$PANVK_TOUCHED" ] && [ -r /etc/fluxlinux/panvk_version ]; then
+            PANVK_OK=$(tr -d '[:space:]' </etc/fluxlinux/panvk_version)
+        fi
+    fi
+    rm -f /tmp/panvk.so /tmp/panvk.json
+    if [ -n "$PANVK_OK" ]; then
+        echo "FluxLinux: PanVK $PANVK_OK installed."
+    else
+        echo "FluxLinux: ${FLUX_PANVK_MSG:-GPU driver download failed — software rendering until you retry}"
+        MODE=virgl
+        VENDOR_HINT="${VENDOR_HINT}+panvk-unavailable"
+    fi
+fi
+
+if [ "$MODE" = turnip ] || [ "$MODE" = panvk ]; then
     flux_gpu_disable_xfce_compositor
     flux_gpu_fake_dri
 fi

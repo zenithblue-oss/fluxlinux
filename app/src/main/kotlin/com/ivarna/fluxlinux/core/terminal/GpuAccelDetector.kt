@@ -22,6 +22,7 @@ object GpuAccelDetector {
 
     const val MODE_TURNIP = "turnip"
     const val MODE_VIRGL = "virgl"
+    const val MODE_PANVK = "panvk"
     const val MODE_AUTO = "auto"
     const val MODE_ASK = "ask"
 
@@ -58,7 +59,14 @@ object GpuAccelDetector {
         if (kgsl) parts += "kgsl=/dev/kgsl-3d0"
 
         val blob = parts.joinToString(" ").lowercase()
-        val result = classify(blob, kgsl)
+        var result = classify(blob, kgsl)
+        // MediaTek Mali v10+ → PanVK (kbase). Everything else stays VirGL.
+        if (result.mode == MODE_VIRGL &&
+            com.ivarna.fluxlinux.core.gpu.PanvkInstaller.current(blob) is
+                com.ivarna.fluxlinux.core.gpu.PanvkInstaller.Elig.Ok
+        ) {
+            result = result.copy(mode = MODE_PANVK)
+        }
         Log.i(
             TAG,
             "GPU detect → mode=${result.mode} vendor=${result.vendorHint} signals=${result.signals}"
@@ -77,6 +85,7 @@ object GpuAccelDetector {
             MODE_AUTO -> fluxGpuEnv()
             MODE_ASK -> MODE_ASK
             MODE_TURNIP -> MODE_TURNIP
+            MODE_PANVK -> MODE_PANVK
             else -> MODE_VIRGL
         }
     }
@@ -103,6 +112,7 @@ object GpuAccelDetector {
         return when (v) {
             "", MODE_AUTO -> MODE_AUTO
             MODE_ASK, "manual" -> MODE_ASK
+            MODE_PANVK -> MODE_PANVK
             MODE_TURNIP, "adreno", "snapdragon", "qcom", "qualcomm", "kgsl", "zink" ->
                 MODE_TURNIP
             MODE_VIRGL, "virpipe", "mali", "powervr", "xclipse",

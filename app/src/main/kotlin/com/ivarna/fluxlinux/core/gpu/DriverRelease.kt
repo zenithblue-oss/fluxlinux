@@ -26,12 +26,14 @@ object DriverRelease {
      * (group 1 = version) and that has an asset accepted by [assetOk] with a
      * sha256 digest. Null when the JSON is bad or nothing qualifies.
      */
-    fun latest(json: String?, tagRe: Regex, assetOk: (String) -> Boolean): Pkg? {
+    fun latest(
+        json: String?, tagRe: Regex, allowPre: Boolean = false, assetOk: (String) -> Boolean
+    ): Pkg? {
         val arr = try { JSONArray(json ?: return null) } catch (_: Exception) { return null }
         var best: Pkg? = null
         for (i in 0 until arr.length()) {
             val r = arr.optJSONObject(i) ?: continue
-            if (r.optBoolean("prerelease") || r.optBoolean("draft")) continue
+            if ((r.optBoolean("prerelease") && !allowPre) || r.optBoolean("draft")) continue
             val ver = tagRe.matchEntire(r.optString("tag_name"))?.groupValues?.get(1) ?: continue
             val assets = r.optJSONArray("assets") ?: continue
             for (j in 0 until assets.length()) {

@@ -372,7 +372,7 @@ class MainActivity : ComponentActivity() {
                 val env = stageCustomizationHostEnv(this, baseEnv, distro.id)
                 runOnUiThread { openWith(env) }
             }.start()
-        } else if (component.id == "hw_accel" && baseEnv["FLUX_GPU"] == "turnip") {
+        } else if (component.id == "hw_accel" && baseEnv["FLUX_GPU"] in listOf("turnip", "panvk")) {
             Thread {
                 val env = baseEnv + GpuDriverInstaller.guestEnv(this, distro.id)
                 runOnUiThread {
@@ -446,7 +446,7 @@ class MainActivity : ComponentActivity() {
                     if (!merged.containsKey("FLUX_GPU_VENDOR")) {
                         merged["FLUX_GPU_VENDOR"] = det.vendorHint
                     }
-                    if (merged["FLUX_GPU"] == "turnip") {
+                    if (merged["FLUX_GPU"] in listOf("turnip", "panvk")) {
                         merged.putAll(GpuDriverInstaller.guestEnv(activity, distro.id))
                     }
                     activity.runOnUiThread {
@@ -518,7 +518,7 @@ class MainActivity : ComponentActivity() {
                 val d = com.ivarna.fluxlinux.core.data.DistroRepository.supportedDistros
                     .find { it.id == id } ?: return@runOnUiThread
                 val c = d.components.find { it.id == "hw_accel" } ?: return@runOnUiThread
-                runEmbeddedComponent(this, d, c, mapOf("FLUX_GPU" to "turnip"), false)
+                runEmbeddedComponent(this, d, c, mapOf("FLUX_GPU" to "auto"), false)
             }
         }
     }

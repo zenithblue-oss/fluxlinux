@@ -92,7 +92,8 @@ object GpuDriverInstaller {
      */
     fun guestEnv(ctx: Context, distroId: String): Map<String, String> {
         val det = GpuAccelDetector.detect()
-        val adreno = det.mode == GpuAccelDetector.MODE_TURNIP && det.vendorHint.startsWith("adreno")
+        if (det.mode == GpuAccelDetector.MODE_PANVK) return PanvkInstaller.guestEnv(ctx, distroId)
+        val adreno =det.mode == GpuAccelDetector.MODE_TURNIP && det.vendorHint.startsWith("adreno")
         val model = runCatching { File("/sys/class/kgsl/kgsl-3d0/gpu_model").readText() }.getOrNull()
         val online = adreno && DriverRelease.online(ctx)
         val json = if (online) DriverRelease.fetch(API) else null
@@ -129,17 +130,19 @@ object GpuDriverInstaller {
 
     /** Read the guest marker and store it in prefs. Blocking; off main thread. */
     fun refreshInstalled(ctx: Context, distroId: String, prootName: String, chroot: Boolean) {
+        val panvk = GpuAccelDetector.detect().mode == GpuAccelDetector.MODE_PANVK
+        val marker = if (panvk) PanvkInstaller.MARKER else MARKER
         val raw = try {
             if (chroot) {
                 val path = com.ivarna.fluxlinux.core.install.DistroInstallProfile.forId(distroId)
                     ?.chrootPath ?: ChrootPaths.CHROOT_PATH
-                RootUtils.runRootCommand("cat $path$MARKER").takeIf { it.isSuccess }?.output
+                RootUtils.runRootCommand("cat $path$marker").takeIf { it.isSuccess }?.output
             } else {
                 val bash = TermuxHostPaths.libBash(ctx).absolutePath
                 ShellCommandRunner.runCaptureExit(
                     ctx,
                     arrayOf(bash, "-c",
-                        "exec python ${TermuxHostPaths.PROOT_DISTRO} login $prootName -- cat $MARKER"),
+                        "exec python ${TermuxHostPaths.PROOT_DISTRO} login $prootName -- cat $marker"),
                     HostCommandBuilder.envMap(ctx, includeTerm = false)
                 ).takeIf { it.first == 0 }?.second
             }
@@ -147,7 +150,8 @@ object GpuDriverInstaller {
             null
         }
         val v = raw?.lines()?.lastOrNull { it.isNotBlank() }?.trim()
-            ?.takeIf { TAG_RE.matches("mesa-$it") }
+            ?.takeIf { if (panvk) PanvkInstaller.TAG_RE.matches("g0-v0-csf-v$it") else TAG_RE.matches("mesa-$it") }
+        if (panvk) return PanvkInstaller.setInstalled(ctx, distroId, v)
         prefs(ctx).edit().apply {
             if (v != null) putString("installed_$distroId", v) else remove("installed_$distroId")
         }.apply()

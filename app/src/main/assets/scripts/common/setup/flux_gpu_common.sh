@@ -10,6 +10,9 @@ flux_gpu_normalize() {
         turnip|adreno|snapdragon|qcom|qualcomm|kgsl|zink)
             printf '%s\n' turnip
             ;;
+        panvk)
+            printf '%s\n' panvk
+            ;;
         virgl|virpipe|mali|powervr|xclipse|llvmpipe|soft|software|sw)
             printf '%s\n' virgl
             ;;
@@ -110,6 +113,13 @@ fi
 if [ "${FLUX_GPU_MODE:-}" = turnip ] && [ -r /etc/fluxlinux/turnip_version ]; then
     export MESA_LOADER_DRIVER_OVERRIDE=kgsl
 fi
+# PanVK installed (marker) → zink on the Mali Vulkan ICD in terminal sessions.
+if [ "${FLUX_GPU_MODE:-}" = panvk ] && [ -r /etc/fluxlinux/panvk_version ]; then
+    export MESA_LOADER_DRIVER_OVERRIDE=zink
+    export GALLIUM_DRIVER=zink
+    export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+    export MESA_VK_WSI_DEBUG=sw
+fi
 PROFILE
     chmod 644 /etc/profile.d/flux-gpu.sh 2>/dev/null || true
 }
@@ -136,7 +146,7 @@ flux_gpu_apply_runtime() {
     elif [ -r /etc/fluxlinux/gpu_mode ]; then
         MODE=$(tr -d '[:space:]' </etc/fluxlinux/gpu_mode)
     fi
-    case "$MODE" in turnip|virgl) ;; *) MODE=virgl ;; esac
+    case "$MODE" in turnip|panvk|virgl) ;; *) MODE=virgl ;; esac
     if [ "$MODE" = turnip ]; then
         if flux_gpu_has_kgsl_dri; then
             export MESA_LOADER_DRIVER_OVERRIDE=kgsl
@@ -149,6 +159,12 @@ flux_gpu_apply_runtime() {
         export MESA_GL_VERSION_OVERRIDE=4.6
         export MESA_GLES_VERSION_OVERRIDE=3.2
         export MESA_NO_ERROR=1
+    elif [ "$MODE" = panvk ]; then
+        # PanVK (mali_kbase) Vulkan ICD + zink GL. Software WSI as with Turnip.
+        export MESA_LOADER_DRIVER_OVERRIDE=zink
+        export GALLIUM_DRIVER=zink
+        export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+        export MESA_VK_WSI_DEBUG=sw
     elif [ "$MODE" = virgl ]; then
         _sock="${VTEST_SOCKET_NAME:-/tmp/.virgl_test}"
         if [ -S "$_sock" ]; then
@@ -199,7 +215,7 @@ flux_gpu_apply_runtime() {
     elif [ -r /etc/fluxlinux/gpu_mode ]; then
         MODE=$(tr -d '[:space:]' </etc/fluxlinux/gpu_mode)
     fi
-    case "$MODE" in turnip|virgl) ;; *) MODE=virgl ;; esac
+    case "$MODE" in turnip|panvk|virgl) ;; *) MODE=virgl ;; esac
     if [ "$MODE" = turnip ]; then
         if flux_gpu_has_kgsl_dri; then
             export MESA_LOADER_DRIVER_OVERRIDE=kgsl
@@ -212,6 +228,12 @@ flux_gpu_apply_runtime() {
         export MESA_GL_VERSION_OVERRIDE=4.6
         export MESA_GLES_VERSION_OVERRIDE=3.2
         export MESA_NO_ERROR=1
+    elif [ "$MODE" = panvk ]; then
+        # PanVK (mali_kbase) Vulkan ICD + zink GL. Software WSI as with Turnip.
+        export MESA_LOADER_DRIVER_OVERRIDE=zink
+        export GALLIUM_DRIVER=zink
+        export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+        export MESA_VK_WSI_DEBUG=sw
     elif [ "$MODE" = virgl ]; then
         _sock="${VTEST_SOCKET_NAME:-/tmp/.virgl_test}"
         if [ -S "$_sock" ]; then
@@ -258,6 +280,12 @@ else
             export MESA_GL_VERSION_OVERRIDE=4.6
             export MESA_GLES_VERSION_OVERRIDE=3.2
             export MESA_NO_ERROR=1
+            ;;
+        panvk)
+            export MESA_LOADER_DRIVER_OVERRIDE=zink
+            export GALLIUM_DRIVER=zink
+            export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+            export MESA_VK_WSI_DEBUG=sw
             ;;
         virgl)
             export GALLIUM_DRIVER=virpipe

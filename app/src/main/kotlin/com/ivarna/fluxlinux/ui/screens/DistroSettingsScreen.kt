@@ -36,6 +36,7 @@ import com.ivarna.fluxlinux.core.data.Distro
 import com.ivarna.fluxlinux.core.data.DistroComponent
 import com.ivarna.fluxlinux.core.gpu.DriverRelease
 import com.ivarna.fluxlinux.core.gpu.GpuDriverInstaller
+import com.ivarna.fluxlinux.core.gpu.PanvkInstaller
 import com.ivarna.fluxlinux.core.terminal.GpuAccelDetector
 import com.ivarna.fluxlinux.core.utils.InstallationQueueManager
 import com.ivarna.fluxlinux.core.utils.StateManager
@@ -470,20 +471,33 @@ fun DistroSettingsScreen(
                 val adreno = remember { GpuAccelDetector.detect().mode == GpuAccelDetector.MODE_TURNIP }
                 val waiting by DriverRelease.waiting.collectAsState()
                 val driverPending = GpuDriverInstaller.pendingDistro(context) != null
-                if (adreno) {
-                    val inst = GpuDriverInstaller.installedVersion(context, distro.id)
-                    val latest = GpuDriverInstaller.latestVersion(context)
+                val elig = remember { PanvkInstaller.current(GpuAccelDetector.detect().signals) }
+                val panvk = elig is PanvkInstaller.Elig.Ok && PanvkInstaller.glibc(distro.id)
+                if (adreno || panvk) {
+                    val name = if (adreno) "Turnip" else "PanVK"
+                    val inst = if (adreno) GpuDriverInstaller.installedVersion(context, distro.id)
+                        else PanvkInstaller.installedVersion(context, distro.id)
+                    val latest = if (adreno) GpuDriverInstaller.latestVersion(context)
+                        else PanvkInstaller.latestVersion(context)
+                    val upd = if (adreno) GpuDriverInstaller.updateAvailable(context, distro.id)
+                        else PanvkInstaller.updateAvailable(context, distro.id)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "GPU driver (Turnip): installed ${inst ?: "none"} · latest ${latest ?: "unknown"}" +
+                        "GPU driver ($name): installed ${inst ?: "none"} · latest ${latest ?: "unknown"}" +
                             when {
                                 waiting -> "\nWaiting for internet…"
                                 driverPending -> "\nNo internet — driver not installed. Software rendering until you retry."
-                                GpuDriverInstaller.updateAvailable(context, distro.id) && inst != null -> "\nUpdate available."
+                                upd && inst != null -> "\nUpdate available."
                                 else -> ""
                             },
                         style = MaterialTheme.typography.bodySmall
                     )
+                } else if (elig is PanvkInstaller.Elig.Skip) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("GPU driver (PanVK): ${elig.msg}", style = MaterialTheme.typography.bodySmall)
+                } else if (elig is PanvkInstaller.Elig.Ok) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("GPU driver (PanVK): needs a glibc distro (${distro.id} is musl) — software rendering stays", style = MaterialTheme.typography.bodySmall)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
@@ -503,7 +517,7 @@ fun DistroSettingsScreen(
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
                 ) {
-                    Text(if (adreno && driverPending) "Retry" else "Apply Configuration")
+                    Text(if ((adreno || panvk) && driverPending) "Retry" else "Apply Configuration")
                 }
             }
         }
