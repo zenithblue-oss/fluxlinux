@@ -3,9 +3,8 @@ package com.ivarna.fluxlinux.core.install
 /**
  * Host `bootstrap.tar` pins for the GitHub release tag `rootfs`.
  *
- * Ivarna (F-Droid / GitHub) downloads this at first host setup — it is **not**
- * packaged in the APK. Zenithblue (Play) still ships the tarball in the APK;
- * the same URL is a repair/offline-fallback.
+ * Both flavors ship `assets/bootstrap.tar` in the APK; this URL is only a
+ * repair fallback used when the asset is missing.
  *
  * Filename is stable per applicationId. A SHA change requires a **new**
  * filename (same D9 rule as distro rootfs) so old APKs keep working.
@@ -38,7 +37,11 @@ object HostBootstrap {
             else -> IVARNA
         }
 
-    /** True when this flavor does **not** package `assets/bootstrap.tar`. */
-    fun downloadsFromRelease(applicationId: String): Boolean =
-        applicationId == IVARNA_PACKAGE
+    /**
+     * True when this flavor does **not** package `assets/bootstrap.tar`.
+     * Both flavors now ship it (F-Droid builds it from source); the release
+     * URL is only a repair fallback when the asset is missing.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun downloadsFromRelease(applicationId: String): Boolean = false
 }

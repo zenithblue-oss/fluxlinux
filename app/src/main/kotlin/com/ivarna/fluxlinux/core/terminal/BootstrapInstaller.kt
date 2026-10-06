@@ -14,12 +14,12 @@ import java.util.concurrent.atomic.AtomicLong
  * then applies the package rewrite + host env SSOT.
  *
  * Local-first (same model as [RootfsDownloader]):
- *  1. APK `assets/bootstrap.tar` when packaged (zenithblue / older APKs)
+ *  1. APK `assets/bootstrap.tar` (both flavors package it)
  *  2. Verified `$HOME/bootstrap_<applicationId>.tar`
- *  3. GitHub release tag `rootfs` download (ivarna default)
+ *  3. GitHub release tag `rootfs` download (repair fallback when the asset is missing)
  *
- * Ivarna does **not** ship the tarball in the APK. Download only runs from
- * [ensureExtracted], which is always user-initiated (Initialize Host / install).
+ * Download only runs from [ensureExtracted], which is always user-initiated
+ * (Initialize Host / install).
  *
  * Pass 2 hardening:
  *  - version marker (`home/.fluxlinux/bootstrap.extracted`) + [isExtracted] checks BOTH

@@ -174,13 +174,12 @@ for ((flavorName, appId) in flavorAppIds) {
 
         val bootstrapTree = fileTree(rootProject.file("native/bootstrap/$appId"))
         inputs.files(bootstrapTree)
-        if (flavorName != "ivarna") {
-            outputs.file(file("src/$flavorName/assets/bootstrap.tar"))
-        }
+        outputs.file(file("src/$flavorName/assets/bootstrap.tar"))
         outputs.dir(file("src/$flavorName/jniLibs"))
 
         doFirst {
-            val jniRequired = listOf(
+            val required = listOf(
+                rootProject.file("native/bootstrap/$appId/bootstrap.tar"),
                 rootProject.file("native/bootstrap/$appId/jniLibs/arm64-v8a/libbash.so"),
                 rootProject.file("native/bootstrap/$appId/jniLibs/arm64-v8a/libproot.so"),
                 rootProject.file("native/bootstrap/$appId/jniLibs/arm64-v8a/libloader.so"),
@@ -188,15 +187,7 @@ for ((flavorName, appId) in flavorAppIds) {
                 rootProject.file("native/bootstrap/$appId/jniLibs/arm64-v8a/libpulseaudio.so"),
                 rootProject.file("native/bootstrap/$appId/jniLibs/arm64-v8a/libpactl.so")
             )
-            // Ivarna downloads bootstrap.tar from the GitHub `rootfs` release at
-            // first host setup. Zenithblue still packages it in the APK.
-            val missing = if (flavorName == "ivarna") {
-                jniRequired.filter { !it.isFile }
-            } else {
-                (
-                    jniRequired + rootProject.file("native/bootstrap/$appId/bootstrap.tar")
-                    ).filter { !it.isFile }
-            }
+            val missing = required.filter { !it.isFile }
             if (missing.isNotEmpty()) {
                 throw GradleException(
                     "Host bootstrap assets missing for applicationId '$appId':\n" +

@@ -51,21 +51,13 @@ stage_app_id() {
   local flavor_assets="$APP_SRC/$flavor/assets"
   local flavor_jni="$APP_SRC/$flavor/jniLibs"
 
-  # 1. Verify inputs. Ivarna does not package bootstrap.tar (GitHub `rootfs`
-  #    download at first host setup). Zenithblue still ships it in the APK.
+  # 1. Verify inputs. Both flavors ship bootstrap.tar in the APK.
   local missing=0
-  local require_bootstrap=1
-  if [ "$flavor" = "ivarna" ]; then
-    require_bootstrap=0
-  fi
-  local required=("$src/jniLibs/arm64-v8a/libbash.so" \
+  local required=("$src/bootstrap.tar" "$src/jniLibs/arm64-v8a/libbash.so" \
            "$src/jniLibs/arm64-v8a/libproot.so" "$src/jniLibs/arm64-v8a/libloader.so" \
            "$src/jniLibs/arm64-v8a/libloader32.so" \
            "$src/jniLibs/arm64-v8a/libpulseaudio.so" \
            "$src/jniLibs/arm64-v8a/libpactl.so")
-  if [ "$require_bootstrap" -eq 1 ]; then
-    required+=("$src/bootstrap.tar")
-  fi
   for f in "${required[@]}"; do
     if [ ! -f "$f" ]; then
       echo "ERROR: missing $f — run assemble_bootstrap.py --package-name $app_id first" >&2
@@ -76,12 +68,7 @@ stage_app_id() {
 
   # 2-3. Stage assets + jniLibs (flavor source set)
   mkdir -p "$flavor_assets" "$flavor_jni/arm64-v8a"
-  if [ "$require_bootstrap" -eq 1 ]; then
-    cp -f "$src/bootstrap.tar" "$flavor_assets/bootstrap.tar"
-  else
-    # Leftover staged tarball would still be packaged — delete it.
-    rm -f "$flavor_assets/bootstrap.tar"
-  fi
+  cp -f "$src/bootstrap.tar" "$flavor_assets/bootstrap.tar"
   cp -f "$src/jniLibs/arm64-v8a/"*.so "$flavor_jni/arm64-v8a/"
 
   # Pulse runtime overlay for already-extracted PREFIX (no EXTRACT_VERSION bump).
