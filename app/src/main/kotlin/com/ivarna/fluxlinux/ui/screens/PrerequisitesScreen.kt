@@ -1400,14 +1400,13 @@ fun PhantomProcessStep(
                 Button(
                     onClick = {
                         coroutineScope.launch {
-                            val r1 = RootUtils.runRootCommand("/system/bin/device_config set_sync_disabled_for_tests persistent")
-                            val r2 = RootUtils.runRootCommand("/system/bin/device_config put activity_manager max_phantom_processes 2147483647")
-                            val r3 = RootUtils.runRootCommand("settings put global settings_enable_monitor_phantom_procs false")
-                            
-                            if (r1.isSuccess && r2.isSuccess && r3.isSuccess) {
-                               fixApplied = true 
+                            val err = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                com.ivarna.fluxlinux.core.system.PhantomProcessFixer.applyRoot()
+                            }
+                            if (err == null) {
+                               fixApplied = true
                             } else {
-                               Toast.makeText(context, "Failed to apply fix: ${r1.error}", Toast.LENGTH_LONG).show()
+                               Toast.makeText(context, "Failed to apply fix: $err", Toast.LENGTH_LONG).show()
                             }
                         }
                     },

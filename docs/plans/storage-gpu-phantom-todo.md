@@ -18,7 +18,7 @@ Status: [x] done. Device test passed on Poco X6 Pro (2311DRK48I) and Lenovo TB33
 
 ## 2. Phantom process killer (#41, exit 137)
 
-Status: [ ]
+Status: [x] done. `core/system/PhantomProcessFixer.kt` + `ui/components/PhantomProcessDialog.kt` (Root / Shizuku via reflective `Shizuku.newProcess` / copyable adb), Settings card "Process killer fix", one-time warning on terminal/desktop start (Don't show again), exit 137 toast in DesktopLauncher. Device test (ivarna debug, Android 16, originals were null/null on both, restored via `settings delete` / `device_config delete`): Poco X6 Pro, flag set true -> Settings shows Enabled, dialog shown on Open Shell; Shizuku 13.6.0 (running, uid 0) permission prompt -> after Allow `settings get` = false, `device_config get max_phantom_processes` = 2147483647, dialog status Disabled, `dumpsys activity settings` showed max_phantom_processes=2147483647; Copy adb button + command text verified. Root path: device rooted (KernelSU) but the app is not in the KSU allowlist, so the grant prompt never completed (not verified). Lenovo TB336FU: Enabled shown, warning dialog shown, Shizuku not installed -> "Shizuku is not running" message, root -> "Cannot run program su" message, adb text OK. Long-session survival not tested.
 
 - Goal: detect state and offer three disable paths plus a warning (Android caps child processes per app; without this the app, terminal or desktop can be killed).
   - (a) Root: already exists, `ui/screens/PrerequisitesScreen.kt` `PhantomProcessStep` (~L1305-1440, uses `RootUtils.runRootCommand`). Reuse, move to a shared helper.

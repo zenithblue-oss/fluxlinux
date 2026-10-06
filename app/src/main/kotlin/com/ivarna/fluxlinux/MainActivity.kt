@@ -488,7 +488,13 @@ class MainActivity : ComponentActivity() {
             
             FluxLinuxTheme(themeMode = currentThemeMode) {
                 val onboardingComplete = StateManager.isOnboardingComplete(this@MainActivity)
-                
+                val showPhantomPrompt by com.ivarna.fluxlinux.core.system.PhantomProcessFixer.promptVisible.collectAsState()
+                if (showPhantomPrompt) {
+                    com.ivarna.fluxlinux.ui.components.PhantomProcessDialog(warning = true) {
+                        com.ivarna.fluxlinux.core.system.PhantomProcessFixer.promptVisible.value = false
+                    }
+                }
+
                 // Permission State (Lifted for Settings and Home access)
                 val permissionState = rememberPermissionState(
                     permission = "com.termux.permission.RUN_COMMAND"

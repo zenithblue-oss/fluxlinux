@@ -31,3 +31,6 @@
 # launched by class name from app_process and activities via reflection.
 -dontwarn com.termux.x11.**
 -keep class com.termux.x11.** { *; }
+
+# Shizuku: PhantomProcessFixer calls the private Shizuku.newProcess by reflection.
+-keep class rikka.shizuku.Shizuku { private static rikka.shizuku.ShizukuRemoteProcess newProcess(java.lang.String[], java.lang.String[], java.lang.String); }

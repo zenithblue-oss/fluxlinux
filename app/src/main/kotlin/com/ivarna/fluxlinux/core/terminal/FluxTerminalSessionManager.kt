@@ -68,6 +68,7 @@ object FluxTerminalSessionManager {
         distroId: String? = null,
         onResult: (SessionOpenResult) -> Unit = {}
     ) {
+        com.ivarna.fluxlinux.core.system.PhantomProcessFixer.maybePrompt(ctx)
         // Count in-flight opens too, so rapid taps cannot pass the check before
         // any add lands. SessionRegistry.add still rejects as a backstop.
         // pendingOpens is touched on the main thread only (here + mainHandler posts).

@@ -235,6 +235,8 @@ dependencies {
     
     // Networking
     implementation(libs.okhttp)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
     // Embedded terminal (termux-app GPLv3 — app stays open source; see LICENSE/README)
     // Only com.termux.terminal + com.termux.view are used. terminal-emulator is built

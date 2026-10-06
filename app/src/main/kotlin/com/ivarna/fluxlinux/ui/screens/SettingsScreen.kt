@@ -10,6 +10,8 @@ import android.os.Environment
 import android.provider.Settings as AndroidSettings
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -190,6 +192,23 @@ fun SettingsScreen(
                         }
                     }
                 )
+            }
+            if (com.ivarna.fluxlinux.core.system.PhantomProcessFixer.applicable()) {
+                var showPhantom by remember { mutableStateOf(false) }
+                val phantomState = com.ivarna.fluxlinux.core.system.PhantomProcessFixer.state(context)
+                SettingsNavCard(
+                    icon = Icons.Default.Warning,
+                    title = "Process killer fix",
+                    subtitle = "Phantom process killer: " + when (phantomState) {
+                        com.ivarna.fluxlinux.core.system.PhantomProcessFixer.State.DISABLED -> "Disabled"
+                        com.ivarna.fluxlinux.core.system.PhantomProcessFixer.State.ENABLED -> "Enabled. Tap to fix with Root, Shizuku or adb"
+                        else -> "Unknown. Tap to fix with Root, Shizuku or adb"
+                    },
+                    onClick = { showPhantom = true }
+                )
+                if (showPhantom) {
+                    com.ivarna.fluxlinux.ui.components.PhantomProcessDialog(warning = false) { showPhantom = false }
+                }
             }
             SettingsNavCard(
                 icon = Icons.Default.Terminal,

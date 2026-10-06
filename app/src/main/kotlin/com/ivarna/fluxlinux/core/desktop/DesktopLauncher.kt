@@ -8,6 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import com.ivarna.fluxlinux.core.data.terminalComponentFor
 import com.ivarna.fluxlinux.core.service.DesktopSessionService
+import com.ivarna.fluxlinux.core.system.PhantomProcessFixer
 import com.ivarna.fluxlinux.core.root.RootShell
 import com.ivarna.fluxlinux.core.terminal.HostScriptDeployer
 import com.ivarna.fluxlinux.core.terminal.ShellCommandRunner
@@ -100,6 +101,7 @@ object DesktopLauncher {
      */
     fun start(ctx: Context, distroId: String, onResult: ((Boolean) -> Unit)? = null) {
         val app = ctx.applicationContext
+        PhantomProcessFixer.maybePrompt(app)
 
         val existing = DesktopSessionQuery.current(app, _ui.value)
         if (existing != null && existing.distroId != distroId) {
@@ -268,7 +270,11 @@ object DesktopLauncher {
                     }
                     code != 0 -> {
                         Log.w(TAG, "Desktop start failed exit=$code")
-                        toast(app, "Desktop start failed (exit $code) — see logs")
+                        if (code == 137) {
+                            toast(app, "Desktop killed by Android (exit 137). Disable the phantom process killer: Settings > Process killer fix")
+                        } else {
+                            toast(app, "Desktop start failed (exit $code) — see logs")
+                        }
                         revertToIdle(app, distroId, "exit $code", showLogs = true)
                         // Only report failure if readiness never delivered success
                         deliverStartResult(onResult, false)
