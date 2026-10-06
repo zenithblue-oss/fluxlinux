@@ -260,8 +260,12 @@ dependencies {
     implementation(libs.okhttp)
 
     // Embedded terminal (termux-app GPLv3 — app stays open source; see LICENSE/README)
-    implementation(libs.termux.app)
-    implementation(libs.listenablefuture)
+    // Only com.termux.terminal + com.termux.view are used. terminal-emulator is built
+    // from v0.118.0 source (:terminal-emulator) so libtermux.so gets 16 KB alignment.
+    implementation(libs.termux.terminal.view) {
+        exclude(group = "com.github.termux.termux-app", module = "terminal-emulator")
+    }
+    implementation(project(":terminal-emulator"))
 
     // Embedded Termux:X11 (cloned + integrated directly, same-package rendering)
     implementation(project(":termux-x11"))

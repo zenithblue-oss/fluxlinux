@@ -23,4 +23,5 @@ dependencyResolutionManagement {
 rootProject.name = "FluxLinux"
 include(":app")
 include(":termux-x11")
+include(":terminal-emulator")
 include(":stub")
