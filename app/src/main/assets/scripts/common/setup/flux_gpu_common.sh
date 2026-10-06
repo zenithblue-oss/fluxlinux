@@ -307,7 +307,7 @@ EOF
 }
 
 flux_gpu_disable_xfce_compositor() {
-    echo "FluxLinux: Disabling XFCE compositor for Turnip..."
+    echo "FluxLinux: Disabling XFCE compositor for GPU acceleration..."
     for _userdir in /home/* /root; do
         [ -d "$_userdir" ] || continue
         _xfce="$_userdir/.config/xfce4/xfconf/xfce-perchannel-xml"
