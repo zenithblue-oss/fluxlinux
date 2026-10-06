@@ -1,0 +1,6 @@
+- Faster terminal start; root (chroot) work moved off the UI thread
+- PRoot terminal launches directly, without proot-distro Python
+- Fix crash on install/terminal notifications on HyperOS (#42, #46)
+- All native libraries 16 KB page aligned
+- terminal-emulator built from source
+- All native code built from source without Docker (F-Droid)
