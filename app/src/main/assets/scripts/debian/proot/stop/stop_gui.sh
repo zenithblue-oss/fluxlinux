@@ -24,7 +24,7 @@ echo "========================================"
 echo "[1/4] Stopping XFCE4 in guest ($DISTRO)..."
 if command -v python >/dev/null 2>&1 && [ -x "$TERMUX__PREFIX/bin/proot-distro" ] || [ -f "$TERMUX__PREFIX/bin/proot-distro" ]; then
   python "$TERMUX__PREFIX/bin/proot-distro" login "$DISTRO" -- \
-    /bin/bash -c 'killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel startxfce4 2>/dev/null; true' \
+    /bin/bash -c 'killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel startxfce4 plasmashell kwin_x11 startplasma-x11 plasma_session ksmserver 2>/dev/null; true' \
     >/dev/null 2>&1 || true
 fi
 # Best-effort host-side names too (some proot trees expose them)
@@ -33,6 +33,8 @@ pkill -9 -f "xfwm4" 2>/dev/null || true
 pkill -9 -f "xfdesktop" 2>/dev/null || true
 pkill -9 -f "xfce4-panel" 2>/dev/null || true
 pkill -9 -f "startxfce4" 2>/dev/null || true
+pkill -9 -f "plasmashell|kwin_x11|startplasma-x11|plasma_session|ksmserver|kded6" 2>/dev/null || true
+pkill -9 -f "dbus-daemon.*--session" 2>/dev/null || true
 
 # Step 2: Leave proot-distro / generic proot shells alone
 echo "[2/4] Skipping proot shell kill (terminal sessions stay alive)"

@@ -157,22 +157,9 @@ fun HomeScreen(
                 session = session,
                 onOpen = { DesktopLauncher.reopenDisplay(context) },
                 onStop = {
-                    val runningType = StateManager.getGuiRunningType(context, session.distroId)
                     try {
-                        if (session.type == DesktopSession.Type.KDE || runningType == "kde") {
-                            if (StateManager.canRunCommands(context)) {
-                                val intent = TermuxIntentFactory.buildStopKdeGuiIntent(context, session.distroId)
-                                onStartService(intent)
-                                StateManager.setGuiRunning(context, session.distroId, false)
-                                StateManager.setGuiRunningType(context, session.distroId, "")
-                                android.widget.Toast.makeText(context, "Stopping KDE Plasma...", android.widget.Toast.LENGTH_SHORT).show()
-                            } else {
-                                permissionState.launchPermissionRequest()
-                            }
-                        } else {
-                            DesktopLauncher.stop(context, session.distroId) {
-                                refreshKey.value++
-                            }
+                        DesktopLauncher.stop(context, session.distroId) {
+                            refreshKey.value++
                         }
                     } catch (e: Exception) {
                         android.widget.Toast.makeText(context, "Stop failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -340,22 +327,9 @@ fun HomeScreen(
                     },
                     onViewLogs = { showDesktopLogs = true },
                     onStop = {
-                        val runningType = StateManager.getGuiRunningType(context, distro.id)
                         try {
-                            if (runningType == "kde") {
-                                if (StateManager.canRunCommands(context)) {
-                                    val intent = TermuxIntentFactory.buildStopKdeGuiIntent(context, distro.id)
-                                    onStartService(intent)
-                                    StateManager.setGuiRunning(context, distro.id, false)
-                                    StateManager.setGuiRunningType(context, distro.id, "")
-                                    android.widget.Toast.makeText(context, "Stopping KDE Plasma...", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    permissionState.launchPermissionRequest()
-                                }
-                            } else {
-                                DesktopLauncher.stop(context, distro.id) {
-                                    refreshKey.value++
-                                }
+                            DesktopLauncher.stop(context, distro.id) {
+                                refreshKey.value++
                             }
                         } catch (e: Exception) {
                             android.widget.Toast.makeText(context, "Stop failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -576,7 +550,7 @@ fun HomeScreen(
                                     "Stop ${session?.distroName ?: "active desktop"} ${session?.type ?: ""} first",
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
-                            } else if (kdeInstalled && StateManager.canRunCommands(context)) {
+                            } else if (kdeInstalled) {
                                 showKdeGpuPicker.value = distro
                             } else if (!kdeInstalled) {
                                 android.widget.Toast.makeText(
@@ -584,8 +558,6 @@ fun HomeScreen(
                                     "Install KDE Plasma Desktop first from Settings.",
                                     android.widget.Toast.LENGTH_LONG
                                 ).show()
-                            } else {
-                                permissionState.launchPermissionRequest()
                             }
                         }
                     )
@@ -599,17 +571,7 @@ fun HomeScreen(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = Color.White,
                             onClick = {
-                                if (runningType == "kde") {
-                                    val intent = TermuxIntentFactory.buildStopKdeGuiIntent(
-                                        context,
-                                        distro.id
-                                    )
-                                    onStartService(intent)
-                                    StateManager.setGuiRunning(context, distro.id, false)
-                                    StateManager.setGuiRunningType(context, distro.id, "")
-                                } else {
-                                    DesktopLauncher.stop(context, distro.id)
-                                }
+                                DesktopLauncher.stop(context, distro.id)
                                 distroToLaunch.value = null
                             }
                         )
@@ -664,90 +626,33 @@ fun HomeScreen(
     // ─── KDE GPU Mode Picker Sub-Dialog ───────────────────────────────────────
     if (showKdeGpuPicker.value != null) {
         val distro = showKdeGpuPicker.value!!
+        // Same built-in X11 path as XFCE; gpu null = installed driver, "software" = llvmpipe.
+        val launchKde = { gpu: String? ->
+            val curr = DesktopSessionQuery.current(context, DesktopLauncher.uiState.value)
+            if (curr != null || DesktopLauncher.isSessionActive()) {
+                if (curr?.distroId == distro.id && curr.type == DesktopSession.Type.KDE) {
+                    DesktopLauncher.reopenDisplay(context)
+                } else {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Stop ${curr?.distroName ?: "active desktop"} first",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                DesktopLauncher.start(context, distro.id, "kde", gpu) { ok ->
+                    refreshKey.value++
+                    if (!ok) showDesktopLogs = true
+                }
+            }
+            showKdeGpuPicker.value = null
+            distroToLaunch.value = null
+        }
         KdeGpuPickerDialog(
             distro = distro,
             onDismiss = { showKdeGpuPicker.value = null },
-            onSelectVirGL = {
-                val curr = DesktopSessionQuery.current(context, DesktopLauncher.uiState.value)
-                if (curr != null || DesktopLauncher.isSessionActive()) {
-                    if (curr?.distroId == distro.id && curr.type == DesktopSession.Type.KDE) {
-                        DesktopLauncher.reopenDisplay(context)
-                    } else {
-                        android.widget.Toast.makeText(
-                            context,
-                            "Stop ${curr?.distroName ?: "active desktop"} first",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } else {
-                    val intent = TermuxIntentFactory.buildLaunchKdeGuiIntent(context, distro.id)
-                    try {
-                        onStartService(intent)
-                        StateManager.setGuiRunning(context, distro.id, true)
-                        StateManager.setGuiRunningType(context, distro.id, "kde")
-                        DesktopLauncher.reopenDisplay(context)
-                        com.ivarna.fluxlinux.core.utils.TermuxX11Preferences.applyToTermux(context)
-                    } catch (e: Exception) {
-                        android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-                showKdeGpuPicker.value = null
-                distroToLaunch.value = null
-            },
-            onSelectTurnip = {
-                val curr = DesktopSessionQuery.current(context, DesktopLauncher.uiState.value)
-                if (curr != null || DesktopLauncher.isSessionActive()) {
-                    if (curr?.distroId == distro.id && curr.type == DesktopSession.Type.KDE) {
-                        DesktopLauncher.reopenDisplay(context)
-                    } else {
-                        android.widget.Toast.makeText(
-                            context,
-                            "Stop ${curr?.distroName ?: "active desktop"} first",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } else {
-                    val intent = TermuxIntentFactory.buildLaunchKdeGuiTurnipIntent(context, distro.id)
-                    try {
-                        onStartService(intent)
-                        StateManager.setGuiRunning(context, distro.id, true)
-                        StateManager.setGuiRunningType(context, distro.id, "kde")
-                        DesktopLauncher.reopenDisplay(context)
-                        com.ivarna.fluxlinux.core.utils.TermuxX11Preferences.applyToTermux(context)
-                    } catch (e: Exception) {
-                        android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-                showKdeGpuPicker.value = null
-                distroToLaunch.value = null
-            },
-            onSelectSoftware = {
-                val curr = DesktopSessionQuery.current(context, DesktopLauncher.uiState.value)
-                if (curr != null || DesktopLauncher.isSessionActive()) {
-                    if (curr?.distroId == distro.id && curr.type == DesktopSession.Type.KDE) {
-                        DesktopLauncher.reopenDisplay(context)
-                    } else {
-                        android.widget.Toast.makeText(
-                            context,
-                            "Stop ${curr?.distroName ?: "active desktop"} first",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } else {
-                    val intent = TermuxIntentFactory.buildLaunchKdeGuiSoftwareIntent(context, distro.id)
-                    try {
-                        onStartService(intent)
-                        StateManager.setGuiRunning(context, distro.id, true)
-                        StateManager.setGuiRunningType(context, distro.id, "kde")
-                        DesktopLauncher.reopenDisplay(context)
-                        com.ivarna.fluxlinux.core.utils.TermuxX11Preferences.applyToTermux(context)
-                    } catch (e: Exception) {
-                        android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-                showKdeGpuPicker.value = null
-                distroToLaunch.value = null
-            }
+            onSelectHardware = { launchKde(null) },
+            onSelectSoftware = { launchKde("software") }
         )
     }
 }
@@ -984,8 +889,7 @@ private fun LaunchModeAction(
 private fun KdeGpuPickerDialog(
     distro: com.ivarna.fluxlinux.core.data.Distro,
     onDismiss: () -> Unit,
-    onSelectVirGL: () -> Unit,
-    onSelectTurnip: () -> Unit,
+    onSelectHardware: () -> Unit,
     onSelectSoftware: () -> Unit
 ) {
     androidx.compose.ui.window.Dialog(
@@ -1068,12 +972,12 @@ private fun KdeGpuPickerDialog(
                     GpuOptionCard(
                         modifier = Modifier.fillMaxWidth(),
                         icon = Icons.Filled.Bolt,
-                        title = "Turnip",
-                        subtitle = "Vulkan",
-                        description = "Hardware Vulkan via Adreno GPU. Best performance.",
+                        title = "Hardware",
+                        subtitle = "Installed GPU driver",
+                        description = "Turnip / PanVK / VirGL, whichever is installed. Best performance.",
                         accentColor = Color(0xFFFF6F00),
-                        badgeText = "Adreno Only",
-                        onClick = onSelectTurnip
+                        badgeText = "Needs driver",
+                        onClick = onSelectHardware
                     )
 
                     // ── Software Card ───────────────────────
@@ -1109,7 +1013,7 @@ private fun KdeGpuPickerDialog(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Turnip needs Adreno + Vulkan. Software works on any device (slower).",
+                            text = "Hardware needs a GPU driver installed. Software works on any device (slower).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)

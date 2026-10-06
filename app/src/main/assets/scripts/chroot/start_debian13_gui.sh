@@ -152,15 +152,23 @@ fi
 echo "[3/5] Kill stale XFCE in chroot..."
 if [ -f "$HELPER" ]; then
   sh "$HELPER" sh --user root -- \
-    "killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel dbus-launch dbus-daemon 2>/dev/null; true" \
+    "killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel plasmashell kwin_x11 startplasma-x11 plasma_session ksmserver dbus-launch dbus-daemon 2>/dev/null; true" \
     >/dev/null 2>&1 || true
 else
   $BB chroot "$DEBIANPATH" /bin/su - root -c \
-    "killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel dbus-launch dbus-daemon 2>/dev/null; true" \
+    "killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel plasmashell kwin_x11 startplasma-x11 plasma_session ksmserver dbus-launch dbus-daemon 2>/dev/null; true" \
     >/dev/null 2>&1
 fi
 
-echo "[4/5] GPU mode + launch XFCE as $USERNAME..."
+echo "[4/5] GPU mode + launch ${FLUX_DESKTOP:-xfce4} as $USERNAME..."
+# FLUX_DESKTOP (env from DesktopLauncher): xfce4 (default) | kde. Expanded into the guest script below.
+FLUX_DE_CMD=startxfce4
+FLUX_KDE_ENV=
+if [ "${FLUX_DESKTOP:-xfce4}" = kde ]; then
+  FLUX_DE_CMD=startplasma-x11
+  # Qt/KDE reject /tmp as XDG_RUNTIME_DIR (wrong perms); use a private 0700 dir.
+  FLUX_KDE_ENV="export KWIN_COMPOSE=N QT_QPA_PLATFORMTHEME=kde XDG_RUNTIME_DIR=/home/$USERNAME/.cache/runtime; mkdir -p /home/$USERNAME/.cache/runtime; chmod 700 /home/$USERNAME/.cache/runtime"
+fi
 # Guest script: sticky /tmp X11 + host-tmp VirGL + gpu_mode file
 $BB chroot "$DEBIANPATH" /bin/bash -c "
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -199,7 +207,12 @@ su - $USERNAME -c '
   echo \"FluxLinux(guest): GPU mode=\$GPU_MODE\"
 
   xfconf-query -c xfwm4 -p /general/use_compositing -s false 2>/dev/null || true
-  exec dbus-launch --exit-with-session startxfce4
+  if [ x$FLUX_GPU_RUNTIME = xsoftware ]; then
+    unset MESA_LOADER_DRIVER_OVERRIDE VK_ICD_FILENAMES TU_DEBUG MESA_VK_WSI_DEBUG
+    export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe GPU_MODE=software
+  fi
+  $FLUX_KDE_ENV
+  exec dbus-launch --exit-with-session $FLUX_DE_CMD
 '
 "
 rc=$?

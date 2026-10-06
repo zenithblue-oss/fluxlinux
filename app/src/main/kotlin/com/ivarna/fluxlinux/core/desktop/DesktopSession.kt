@@ -27,7 +27,7 @@ object DesktopSessionQuery {
             return DesktopSession(
                 distroId = ui.distroId,
                 distroName = name,
-                type = DesktopSession.Type.XFCE4,
+                type = if (ui.desktop == "kde") DesktopSession.Type.KDE else DesktopSession.Type.XFCE4,
                 phase = phase
             )
         }

@@ -152,12 +152,18 @@ sleep 1
 
 # Verify guest setup
 ROOTFS="$TERMUX_PREFIX/var/lib/proot-distro/containers/$DISTRO/rootfs"
-if [ ! -e "$ROOTFS/usr/bin/startxfce4" ] && [ ! -e "$ROOTFS/usr/sbin/startxfce4" ]; then
-  echo "FluxLinux: XFCE setup incomplete. Re-run environment setup."
+# FLUX_DESKTOP (env from DesktopLauncher): xfce4 (default) | kde
+FLUX_DESKTOP="${FLUX_DESKTOP:-xfce4}"
+case "$FLUX_DESKTOP" in
+  kde) DE_CMD=startplasma-x11 ;;
+  *) FLUX_DESKTOP=xfce4; DE_CMD=startxfce4 ;;
+esac
+if [ ! -e "$ROOTFS/usr/bin/$DE_CMD" ] && [ ! -e "$ROOTFS/usr/sbin/$DE_CMD" ]; then
+  echo "FluxLinux: $FLUX_DESKTOP setup incomplete ($DE_CMD missing). Re-run environment setup."
   exit 1
 fi
 
-echo "FluxLinux: startxfce4=READY"
+echo "FluxLinux: $DE_CMD=READY"
 
 # Guest GPU mode from setup_hw_accel_debian.sh (/etc/fluxlinux/gpu_mode)
 # turnip → Adreno/Zink; virgl → host virgl_test_server; else softpipe
@@ -190,7 +196,8 @@ else
   if [ -e /dev/kgsl-3d0 ]; then
     _KGSL_BIND="--bind=/dev/kgsl-3d0"
   fi
-  python "$TERMUX_PREFIX/bin/proot-distro" login "$DISTRO" --shared-tmp $_KGSL_BIND -- $GUEST_SHELL -c '
+  python "$TERMUX_PREFIX/bin/proot-distro" login "$DISTRO" --shared-tmp $_KGSL_BIND -- \
+    env FLUX_DESKTOP="$FLUX_DESKTOP" FLUX_GPU_RUNTIME="${FLUX_GPU_RUNTIME:-}" $GUEST_SHELL -c '
     export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     unset PROOT_TMP_DIR
     export TMPDIR=/tmp
@@ -313,6 +320,12 @@ BWRAP_EOF
     fi
     chmod 755 /usr/bin/bwrap /usr/bin/bubblewrap 2>/dev/null || true
     # Use bash login shell for GUI (avoid zshrc noise); fall back to sh.
+    FLUX_DE_CMD=startxfce4
+    FLUX_KDE_ENV=
+    if [ "$FLUX_DESKTOP" = kde ]; then
+      FLUX_DE_CMD=startplasma-x11
+      FLUX_KDE_ENV="export KWIN_COMPOSE=N QT_QPA_PLATFORMTHEME=kde"
+    fi
     FLUX_SU_SHELL=/bin/bash
     if [ ! -x /bin/bash ] && [ ! -x /usr/bin/bash ]; then
       FLUX_SU_SHELL=/bin/sh
@@ -355,10 +368,15 @@ BWRAP_EOF
           export GALLIUM_DRIVER=llvmpipe
         fi
       fi
+      if [ \"$FLUX_GPU_RUNTIME\" = software ]; then
+        unset MESA_LOADER_DRIVER_OVERRIDE VK_ICD_FILENAMES TU_DEBUG MESA_VK_WSI_DEBUG
+        export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe GPU_MODE=software
+      fi
+      $FLUX_KDE_ENV
       if command -v dbus-run-session >/dev/null 2>&1; then
-        exec dbus-run-session -- startxfce4
+        exec dbus-run-session -- $FLUX_DE_CMD
       else
-        exec dbus-launch --exit-with-session startxfce4
+        exec dbus-launch --exit-with-session $FLUX_DE_CMD
       fi
     "
   '

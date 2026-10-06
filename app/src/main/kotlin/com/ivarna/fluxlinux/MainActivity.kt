@@ -1155,21 +1155,19 @@ class MainActivity : ComponentActivity() {
                                       }
                                   },
                                   onLaunchKde = {
-                                      if (permissionState.status.isGranted) {
-                                          try {
-                                              val intent = com.ivarna.fluxlinux.core.data.TermuxIntentFactory.buildLaunchKdeGuiIntent(this@MainActivity, selectedDistro!!.id)
-                                              onStartServiceStub(intent)
-                                          } catch (e: Exception) {
-                                              android.util.Log.e("FluxLinux", "Launch KDE failed", e)
-                                          }
-                                      } else {
-                                          permissionState.launchPermissionRequest()
+                                      try {
+                                          com.ivarna.fluxlinux.core.desktop.DesktopLauncher.start(
+                                              this@MainActivity, selectedDistro!!.id, "kde"
+                                          )
+                                      } catch (e: Exception) {
+                                          android.util.Log.e("FluxLinux", "Launch KDE failed", e)
                                       }
                                   },
                                   onStopKde = {
                                       try {
-                                           val intent = com.ivarna.fluxlinux.core.data.TermuxIntentFactory.buildStopKdeGuiIntent(this, selectedDistro!!.id)
-                                          onStartServiceStub(intent)
+                                          com.ivarna.fluxlinux.core.desktop.DesktopLauncher.stop(
+                                              this@MainActivity, selectedDistro!!.id
+                                          )
                                       } catch (e: Exception) {
                                           android.util.Log.e("FluxLinux", "Stop KDE failed", e)
                                       }

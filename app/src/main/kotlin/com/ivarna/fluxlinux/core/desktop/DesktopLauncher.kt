@@ -50,7 +50,9 @@ object DesktopLauncher {
         val displayReady: Boolean = false,
         /** One-shot signal for UI to auto-open log sheet when start begins / fails. */
         val autoShowLogsTick: Int = 0,
-        val lastError: String? = null
+        val lastError: String? = null,
+        /** "xfce4" | "kde" — what the running/starting session is. */
+        val desktop: String = "xfce4"
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -60,6 +62,8 @@ object DesktopLauncher {
     @Volatile private var guiUserStopping: Boolean = false
     @Volatile private var guiX11Launched: Boolean = false
     @Volatile private var startInFlight: Boolean = false
+    @Volatile private var desktopType: String = "xfce4"
+    @Volatile private var gpuRuntime: String? = null
     private val healthyLineSeen = AtomicBoolean(false)
     /** Ensures [onResult] is invoked at most once per start. */
     private val startResultDelivered = AtomicBoolean(false)
@@ -96,10 +100,18 @@ object DesktopLauncher {
     fun isSessionActive(): Boolean = _ui.value.phase != Phase.Idle || startInFlight
 
     /**
+     * @param desktop "xfce4" or "kde" (FLUX_DESKTOP for the start_gui*.sh scripts)
+     * @param gpuRuntime null = installed driver; "software" = force llvmpipe (FLUX_GPU_RUNTIME)
      * @param onResult main-thread; true when desktop readiness marker seen
      *   (once); false only on early fail before readiness.
      */
-    fun start(ctx: Context, distroId: String, onResult: ((Boolean) -> Unit)? = null) {
+    fun start(
+        ctx: Context,
+        distroId: String,
+        desktop: String = "xfce4",
+        gpuRuntime: String? = null,
+        onResult: ((Boolean) -> Unit)? = null
+    ) {
         val app = ctx.applicationContext
         PhantomProcessFixer.maybePrompt(app)
 
@@ -118,10 +130,13 @@ object DesktopLauncher {
 
         // Claim slot before async prepareHost
         startInFlight = true
+        desktopType = desktop
+        this.gpuRuntime = gpuRuntime
         _ui.update {
             it.copy(
                 phase = Phase.Starting,
-                distroId = distroId
+                distroId = distroId,
+                desktop = desktop
             )
         }
 
@@ -249,6 +264,8 @@ object DesktopLauncher {
         val args = arrayOf(bash, script.absolutePath, scriptArg)
         val envMap = HashMap<String, String>()
         RootShell.cachedBusyBox()?.let { envMap["FLUX_BB"] = it }
+        envMap["FLUX_DESKTOP"] = desktopType
+        gpuRuntime?.let { envMap["FLUX_GPU_RUNTIME"] = it }
 
         guiShellJob = ShellCommandRunner.runStreamedCancelable(
             app,
@@ -419,7 +436,7 @@ object DesktopLauncher {
         if (!first) return
 
         StateManager.setGuiRunning(app, distroId, true)
-        StateManager.setGuiRunningType(app, distroId, "xfce4")
+        StateManager.setGuiRunningType(app, distroId, desktopType)
         runCatching { TermuxX11Preferences.applyToTermux(app) }
 
         _ui.update {

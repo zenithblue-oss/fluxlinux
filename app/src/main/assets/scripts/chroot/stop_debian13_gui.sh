@@ -66,7 +66,7 @@ fi
 echo "[1/4] Kill XFCE in chroot..."
 if [ -n "$BB" ] && [ -d "$DEBIANPATH" ]; then
   $BB chroot "$DEBIANPATH" /bin/su - root -c \
-    "killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel dbus-launch dbus-daemon 2>/dev/null; true" \
+    "killall -9 xfce4-session xfwm4 xfdesktop xfce4-panel plasmashell kwin_x11 startplasma-x11 plasma_session ksmserver dbus-launch dbus-daemon 2>/dev/null; true" \
     >/dev/null 2>&1
 fi
 
