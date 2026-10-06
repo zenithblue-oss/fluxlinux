@@ -31,7 +31,7 @@ Status: [x] done. `core/system/PhantomProcessFixer.kt` + `ui/components/PhantomP
 
 ## 3. Adreno: auto-install Mesa Turnip into guest
 
-Status: [~] implemented (stable `mesa-*` pick, sha256, pinned fallback, offline Retry + auto-resume, marker). Adreno e2e on OnePlus 13R pending (needs OK to replace its release-signed install).
+Status: [x] implemented (stable `mesa-*` pick, sha256, pinned fallback, offline Retry + auto-resume, marker). Adreno e2e verified on OnePlus 13R (Adreno 750, Android 16, Debian trixie proot, fresh onboarding): `/etc/fluxlinux/turnip_version` = `26.3.0-devel-20260824`; guest `vulkaninfo --summary` GPU0/GPU1 = `Turnip Adreno (TM) 750`, `turnip Mesa driver`, Mesa 26.3.0-devel (git-98f3d6229d) (llvmpipe only as GPU2); Settings GPU dialog shows installed 26.3.0-devel-20260824 / latest 26.3.0-devel-20260824. Offline path tested earlier on Lenovo only.
 
 - Repo found: `https://github.com/lfdevs/mesa-for-android-container`.
 - Release tags look like `mesa-26.3.0-devel-20260824` (standard, patched Turnip), `turnip-26.3.0-devel-20260824` (unpatched), `turnip-weekly` (untested weekly).
@@ -58,7 +58,7 @@ Status: [ ]
 
 ## 5. Make guests and desktop use the installed driver
 
-Status: [~] Adreno done (marker -> MESA_LOADER_DRIVER_OVERRIDE=kgsl in profile.d + existing apply_gpu_env; kgsl bound in terminal). PanVK pending.
+Status: [~] Adreno done and verified on OnePlus 13R (marker -> MESA_LOADER_DRIVER_OVERRIDE=kgsl in terminal; XFCE desktop terminal `glxinfo -B`: freedreno / FD750, Mesa 26.3.0-devel, direct rendering yes, Accelerated yes; `glxgears` 119 FPS). PanVK pending.
 
 - Goal: terminal sessions and desktop start scripts export the right env for the installed driver; fall back to llvmpipe when none installed.
 - Env (verify per driver README before coding):
