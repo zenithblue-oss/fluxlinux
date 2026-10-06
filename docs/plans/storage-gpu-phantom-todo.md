@@ -1,0 +1,68 @@
+# Storage, phantom-process and GPU driver TODO
+
+Work one item at a time, top to bottom. Tick status only after the device acceptance test passes.
+Build/test flavor: `ivarna` (`com.ivarna.fluxlinux`). Never touch distro rootfs builds.
+
+Status: `[ ]` todo, `[~]` in progress, `[x]` done.
+
+## 1. Shared storage in guests (#48 no /sdcard on HyperOS, #29 USB OTG / lsblk)
+
+Status: [ ]
+
+- Goal: guide user to grant All-files access, then bind `/sdcard` (-> `/storage/emulated/0`) and `/storage` (external SD / OTG volumes where readable) into proot and chroot guests.
+- Reference (nativecode-ai, `~/repos/termux-lib`):
+  - `app/src/main/java/com/zenithblue/nativecode/terminal/ProotFastCommandBuilder.kt:204-208` binds `/storage/emulated/0:/sdcard` only when dir exists and `canRead()`.
+  - Permission is requested by the bundled Termux app: `termux-app/app/src/main/AndroidManifest.xml:25-26` (WRITE + MANAGE_EXTERNAL_STORAGE), `termux-app/app/src/main/java/com/termux/app/TermuxActivity.java:719-727` (`ensureStoragePermissionGranted`).
+- Files: `app/src/ivarna/AndroidManifest.xml` (ivarna only, F-Droid), `core/terminal/ProotCommandBuilder.kt` (`storageBinds`), `ui/screens/SettingsScreen.kt` (prompt card), `assets/scripts/chroot/*` (verify `/sdcard` bind), `ProotCommandBuilderTest.kt`.
+- Acceptance: on HyperOS device grant via the card; a file written in guest `/sdcard` shows in `adb shell ls /sdcard`; `/storage` lists in guest; zenithblue manifest has no MANAGE_EXTERNAL_STORAGE.
+
+## 2. Phantom process killer (#41, exit 137)
+
+Status: [ ]
+
+- Goal: detect state and offer three disable paths plus a warning (Android caps child processes per app; without this the app, terminal or desktop can be killed).
+  - (a) Root: already exists, `ui/screens/PrerequisitesScreen.kt` `PhantomProcessStep` (~L1305-1440, uses `RootUtils.runRootCommand`). Reuse, move to a shared helper.
+  - (b) Shizuku: via Shizuku API run `settings put global settings_enable_monitor_phantom_procs false` and/or `device_config put activity_manager max_phantom_processes 2147483647` (and `device_config set_sync_disabled_for_tests persistent` where needed).
+  - (c) PC/adb: show copyable commands (same strings as PrerequisitesScreen L1439-1440 plus sync-disable).
+- State detection: `settings get global settings_enable_monitor_phantom_procs`, `device_config get activity_manager max_phantom_processes` (readable only via shell/root; app-side fallback: show "unknown").
+- Files: new `core/system/PhantomProcessFixer.kt`, `ui/screens/` card in Settings + first-run warning dialog, `build.gradle.kts` (Shizuku dep, ivarna only if desired), Manifest provider.
+- Acceptance: after fix, `adb shell dumpsys activity settings | grep -i phantom` shows disabled; long desktop session survives; warning shown when not fixed.
+
+## 3. Adreno: auto-install Mesa Turnip into guest
+
+Status: [ ]
+
+- Repo found: `https://github.com/lfdevs/mesa-for-android-container`.
+- Release tags look like `mesa-26.3.0-devel-20260824` (standard, patched Turnip), `turnip-26.3.0-devel-20260824` (unpatched), `turnip-weekly` (untested weekly).
+- Asset naming: `mesa-for-android-container_<ver>_<distro>_arm64.tar.gz` (distro suffix: `alpine_3.24`, `debian_trixie`, `fedora_43`, `fedora_44`, `ubuntu_noble|questing|resolute`, `void`; arch is plain `.tar`). Install: `tar -xzf <asset> -C /` in guest, then `ldconfig`.
+- Latest: GitHub API `repos/lfdevs/mesa-for-android-container/releases/latest` (title without `turnip-` prefix), pick asset by guest distro suffix; verify `digest` (sha256) field of the asset.
+- Pinned fallback: `mesa-26.3.0-devel-20260824`, `https://github.com/lfdevs/mesa-for-android-container/releases/download/mesa-26.3.0-devel-20260824/mesa-for-android-container_26.3.0-devel-20260824_debian_trixie_arm64.tar.gz`, sha256 `c014cf66bdbff96417ee30d34f006cf51df64ae04893d599711b0b6b73b52ccf` (other distros: read from API; pin one per distro).
+- No internet: show dialog "no internet, driver not installed" with Retry.
+- Detect Adreno: `GpuAccelDetector.detect()` (`core/terminal/GpuAccelDetector.kt`) or `/dev/kgsl-3d0` / `/sys/class/kgsl`. README: Adreno 6xx/7xx/8xx (8xx needs mesa >= 26.0 / 26.3 build).
+- Files: new `core/gpu/GpuDriverInstaller.kt`, `assets/scripts/common/setup/setup_hw_accel_guest.sh`, UI card in Settings/onboarding.
+- Acceptance (OnePlus 13R): `vulkaninfo --summary` in guest shows Turnip Adreno 750.
+
+## 4. MediaTek Mali Valhall v10+ (PanVK)
+
+Status: [ ]
+
+- Repo: `https://github.com/zenithblue-oss/panvk-kbase-android`. Releases mix apps and drivers (`panplay-*`, `panprobe-*`, `g615-v11-csf-v0.1.0-beta.N`), so `/releases/latest` is NOT reliable: list releases, pick newest tag matching `^g\d+-v\d+-csf-`.
+- Assets (beta.16): `libvulkan_panfrost-glibc-aarch64.so` (guest/proot), `libvulkan_panfrost-android-aarch64.so` (bionic), `panfrost_icd.aarch64.json`, `SHA256SUMS`. Use the glibc `.so` + ICD json in guest (e.g. `/usr/share/vulkan/icd.d/`, fix `library_path`).
+- Pinned fallback: tag `g615-v11-csf-v0.1.0-beta.16`; `libvulkan_panfrost-glibc-aarch64.so` sha256 `bb92ce9c4dbbacd0899c0594a3b12dc29da73e0a45624e218a8c17ff3cb76def`; `panfrost_icd.aarch64.json` sha256 `1c27f9363261d7080491b4c72ade8805f3f22ab6932123256515d2cf76580ff2`. Base URL `https://github.com/zenithblue-oss/panvk-kbase-android/releases/download/<tag>/<asset>`.
+- Retry + inform on no internet, same as item 3.
+- Only MediaTek SoC (`ro.hardware`/`ro.soc.manufacturer`/`Build.SOC_MANUFACTURER` contains MediaTek or mt6xxx) AND Mali arch >= v10.
+- Arch detection options: (1) GPU_ID from `/dev/mali0` `KBASE_IOCTL_GET_GPUPROPS` (arch major = `gpu_id >> 28`; G615 = `0xB8A3...` -> 11); (2) GLES renderer string `Mali-G615` mapped via table: G310/G510/G610/G710 = v10, G615/G715 = v11, G620/G720 = v12, G625/G725/G925 = v13, G1 = v14, Immortalis-G715 = v11, Immortalis-G720 = v12, Immortalis-G925 = v13; (3) `/sys/class/misc/mali0/device/gpuinfo` (vendor dependent, read test on device). Prefer (2) for simplicity (existing `GpuAccelDetector` blob already contains renderer), confirm with (3).
+- README support status: only G615 (v11) tested; v10/v12-v14 untested, v9 experimental. Show "experimental" notice for non-G615.
+- Acceptance (Poco X6 Pro, Mali-G615): `VK_ICD_FILENAMES=<icd> vulkaninfo --summary` in guest lists PanVK.
+
+## 5. Make guests and desktop use the installed driver
+
+Status: [ ]
+
+- Goal: terminal sessions and desktop start scripts export the right env for the installed driver; fall back to llvmpipe when none installed.
+- Env (verify per driver README before coding):
+  - Turnip (lfdevs standard release): `MESA_LOADER_DRIVER_OVERRIDE=kgsl`; `turnip-weekly` alone: `MESA_LOADER_DRIVER_OVERRIDE=zink`, `GALLIUM_DRIVER=zink`, `TU_DEBUG=noconform` if needed.
+  - PanVK: `VK_ICD_FILENAMES=<panfrost_icd.aarch64.json>`, `MESA_LOADER_DRIVER_OVERRIDE=zink`, `GALLIUM_DRIVER=zink`.
+  - None: `LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`.
+- Files: `core/terminal/ProotCommandBuilder.kt` (`guestEnvVars`/`guestLoginEnv`), chroot env in `assets/scripts/chroot/fluxlinux_chroot.sh`, `assets/scripts/**/start_gui*.sh`, `assets/scripts/common/setup/{setup_hw_accel_guest.sh,flux_gpu_common.sh}`, bind `/dev/kgsl-3d0` (Adreno) or `/dev/mali0` (Mali) into proot/chroot.
+- Acceptance: `glxinfo -B` in guest desktop reports the hardware GPU (Turnip/PanVK via zink); uninstalled driver reports llvmpipe.
