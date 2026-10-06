@@ -130,8 +130,17 @@ LANG=en_US.UTF-8 \
 /system/bin/app_process / \
   --nice-name="termux-x11" com.termux.x11.Loader :0 -legacy-drawing &
 XSERVER_PID=$!
-echo "FluxLinux: X server PID=$XSERVER_PID"
-sleep 3
+# Wait up to 15s for the X socket; ready marker only once it exists and the server lives.
+_i=0
+while [ ! -S "$TMPDIR/.X11-unix/X0" ] && [ "$_i" -lt 30 ] && kill -0 "$XSERVER_PID" 2>/dev/null; do
+  sleep 0.5
+  _i=$((_i + 1))
+done
+if [ ! -S "$TMPDIR/.X11-unix/X0" ] || ! kill -0 "$XSERVER_PID" 2>/dev/null; then
+  echo "FluxLinux: [ERROR] X server did not create $TMPDIR/.X11-unix/X0 within 15s (or exited)."
+  exit 1
+fi
+echo "FluxLinux: host X0 socket ready (X server PID=$XSERVER_PID)"
 
 # Open X11 display activity in our app
 echo "FluxLinux: Launching X11 display activity..."

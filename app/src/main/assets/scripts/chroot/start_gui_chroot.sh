@@ -171,7 +171,8 @@ if [ ! -f "$APP_LIB_DIR/libXlorie.so" ] && [ -n "$TERMUX_X11_APK_PATH" ]; then
     mv -f lib/armeabi-v7a/libXlorie.so . && rm -rf lib )
 fi
 
-rm -f "$TMPDIR/.X0-lock" "$TMPDIR/.X1-lock" "$TMPDIR/.tX0-lock" 2>/dev/null || true
+rm -f "$TMPDIR/.X0-lock" "$TMPDIR/.X1-lock" "$TMPDIR/.tX0-lock" \
+  "$TMPDIR/.X11-unix/X0" "$TMPDIR/.X11-unix/X1" 2>/dev/null || true
 if [ -e "$TMPDIR/.X11-unix" ] && [ ! -d "$TMPDIR/.X11-unix" ]; then
   rm -f "$TMPDIR/.X11-unix" 2>/dev/null || true
 fi
@@ -193,8 +194,17 @@ LANG=en_US.UTF-8 \
 /system/bin/app_process / \
   --nice-name="termux-x11" com.termux.x11.Loader :0 -legacy-drawing &
 XSERVER_PID=$!
-echo "FluxLinux: X server PID=$XSERVER_PID"
-sleep 3
+# Wait up to 15s for the X socket; ready marker only once it exists and the server lives.
+_i=0
+while [ ! -S "$TMPDIR/.X11-unix/X0" ] && [ "$_i" -lt 30 ] && kill -0 "$XSERVER_PID" 2>/dev/null; do
+  sleep 0.5
+  _i=$((_i + 1))
+done
+if [ ! -S "$TMPDIR/.X11-unix/X0" ] || ! kill -0 "$XSERVER_PID" 2>/dev/null; then
+  echo "FluxLinux: [ERROR] X server did not create $TMPDIR/.X11-unix/X0 within 15s (or exited)."
+  exit 1
+fi
+echo "FluxLinux: host X0 socket ready (X server PID=$XSERVER_PID)"
 
 echo "FluxLinux: Opening X11 activity..."
 am start -n "$PKG/com.termux.x11.MainActivity" \
