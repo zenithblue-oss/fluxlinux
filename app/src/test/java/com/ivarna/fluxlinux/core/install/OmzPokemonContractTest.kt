@@ -246,16 +246,14 @@ class OmzPokemonContractTest {
     }
 
     @Test
-    fun guestHwAccel_pinsTurnipVersionAndMap() {
+    fun guestHwAccel_usesAppPickedStableTurnipWithShaAndMarker() {
         val text = repoFile(
             "src/main/assets/scripts/common/setup/setup_hw_accel_guest.sh"
         ).readText()
-        assertTrue(text.contains("26.2.0-devel-20260709"))
-        assertFalse(text.contains("20260610"))
-        assertTrue(text.contains("debian_trixie"))
-        assertTrue(text.contains("fedora_43"))
-        assertTrue(text.contains("alpine_3.24"))
-        assertTrue(text.contains("archlinux"))
-        assertTrue(text.contains("no-tarball"))
+        assertTrue(text.contains("FLUX_TURNIP_"))
+        assertTrue(text.contains("sha256sum"))
+        assertTrue(text.contains("/etc/fluxlinux/turnip_version"))
+        assertFalse(text.contains("turnip-weekly"))
+        assertFalse(text.contains("/turnip-"))
     }
 }

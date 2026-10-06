@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ivarna.fluxlinux.core.data.Distro
 import com.ivarna.fluxlinux.core.data.DistroComponent
+import com.ivarna.fluxlinux.core.gpu.DriverRelease
+import com.ivarna.fluxlinux.core.gpu.GpuDriverInstaller
 import com.ivarna.fluxlinux.core.terminal.GpuAccelDetector
 import com.ivarna.fluxlinux.core.utils.InstallationQueueManager
 import com.ivarna.fluxlinux.core.utils.StateManager
@@ -465,6 +467,24 @@ fun DistroSettingsScreen(
                 SettingsThemeOption(name = "Turnip/Zink (Snapdragon)", desc = "High performance for Adreno.", id = "turnip", selected = selectedGpu == "turnip", onSelect = { selectedGpu = "turnip" })
                 SettingsThemeOption(name = "Force Re-Detect", desc = "Ask interactively during install.", id = "ask", selected = selectedGpu == "ask", onSelect = { selectedGpu = "ask" })
                 
+                val adreno = remember { GpuAccelDetector.detect().mode == GpuAccelDetector.MODE_TURNIP }
+                val waiting by DriverRelease.waiting.collectAsState()
+                val driverPending = GpuDriverInstaller.pendingDistro(context) != null
+                if (adreno) {
+                    val inst = GpuDriverInstaller.installedVersion(context, distro.id)
+                    val latest = GpuDriverInstaller.latestVersion(context)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "GPU driver (Turnip): installed ${inst ?: "none"} · latest ${latest ?: "unknown"}" +
+                            when {
+                                waiting -> "\nWaiting for internet…"
+                                driverPending -> "\nNo internet — driver not installed. Software rendering until you retry."
+                                GpuDriverInstaller.updateAvailable(context, distro.id) && inst != null -> "\nUpdate available."
+                                else -> ""
+                            },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
                     onClick = {
@@ -483,7 +503,7 @@ fun DistroSettingsScreen(
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
                 ) {
-                    Text("Apply Configuration")
+                    Text(if (adreno && driverPending) "Retry" else "Apply Configuration")
                 }
             }
         }

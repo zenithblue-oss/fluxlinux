@@ -1,6 +1,8 @@
 package com.ivarna.fluxlinux
 
 import android.Manifest
+import com.ivarna.fluxlinux.core.gpu.DriverRelease
+import com.ivarna.fluxlinux.core.gpu.GpuDriverInstaller
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -352,6 +354,7 @@ class MainActivity : ComponentActivity() {
                     com.ivarna.fluxlinux.core.utils.StateManager.setComponentInstalled(
                         this, distro.id, component.id, true
                     )
+                    if (component.id == "hw_accel") refreshDriverMarker(distro)
                     com.ivarna.fluxlinux.core.utils.StateManager.triggerRefresh()
                     runComponentStep(distro, components, index + 1, theme, gpu)
                 }
@@ -368,6 +371,14 @@ class MainActivity : ComponentActivity() {
             Thread {
                 val env = stageCustomizationHostEnv(this, baseEnv, distro.id)
                 runOnUiThread { openWith(env) }
+            }.start()
+        } else if (component.id == "hw_accel" && baseEnv["FLUX_GPU"] == "turnip") {
+            Thread {
+                val env = baseEnv + GpuDriverInstaller.guestEnv(this, distro.id)
+                runOnUiThread {
+                    if (GpuDriverInstaller.pendingDistro(this) != null) armDriverResume()
+                    openWith(env)
+                }
             }.start()
         } else {
             openWith(baseEnv)
@@ -415,6 +426,7 @@ class MainActivity : ComponentActivity() {
                         com.ivarna.fluxlinux.core.utils.StateManager.setComponentInstalled(
                             activity, distro.id, component.id, !isUninstall
                         )
+                        if (!isUninstall && component.id == "hw_accel") refreshDriverMarker(distro)
                         com.ivarna.fluxlinux.core.utils.StateManager.triggerRefresh()
                     }
                 )
@@ -422,20 +434,29 @@ class MainActivity : ComponentActivity() {
                     onOpenTerminalScreen()
                 }
             }
-            val resolvedEnv = if (!isUninstall && component.id == "hw_accel") {
-                val merged = extraEnv.toMutableMap()
-                val raw = extraEnv["FLUX_GPU"]
-                val det = com.ivarna.fluxlinux.core.terminal.GpuAccelDetector.detect()
-                com.ivarna.fluxlinux.core.terminal.GpuAccelDetector.persist(activity, det)
-                merged["FLUX_GPU"] =
-                    com.ivarna.fluxlinux.core.terminal.GpuAccelDetector.resolveFluxGpu(raw)
-                if (!merged.containsKey("FLUX_GPU_VENDOR")) {
-                    merged["FLUX_GPU_VENDOR"] = det.vendorHint
-                }
-                merged
-            } else {
-                extraEnv
+            if (!isUninstall && component.id == "hw_accel") {
+                // Adreno: pick the stable Turnip release (network) off the main thread.
+                Thread {
+                    val merged = extraEnv.toMutableMap()
+                    val raw = extraEnv["FLUX_GPU"]
+                    val det = com.ivarna.fluxlinux.core.terminal.GpuAccelDetector.detect()
+                    com.ivarna.fluxlinux.core.terminal.GpuAccelDetector.persist(activity, det)
+                    merged["FLUX_GPU"] =
+                        com.ivarna.fluxlinux.core.terminal.GpuAccelDetector.resolveFluxGpu(raw)
+                    if (!merged.containsKey("FLUX_GPU_VENDOR")) {
+                        merged["FLUX_GPU_VENDOR"] = det.vendorHint
+                    }
+                    if (merged["FLUX_GPU"] == "turnip") {
+                        merged.putAll(GpuDriverInstaller.guestEnv(activity, distro.id))
+                    }
+                    activity.runOnUiThread {
+                        if (GpuDriverInstaller.pendingDistro(activity) != null) armDriverResume()
+                        openWith(merged)
+                    }
+                }.start()
+                return@prepareHost
             }
+            val resolvedEnv = extraEnv
             if (!isUninstall && isCustomizationComponent(component)) {
                 android.widget.Toast.makeText(
                     activity, "Preparing themes & Oh My Zsh on host…",
@@ -475,9 +496,44 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Update installed-driver prefs from the guest marker (off main thread). */
+    private fun refreshDriverMarker(distro: com.ivarna.fluxlinux.core.data.Distro) {
+        val p = com.ivarna.fluxlinux.core.install.DistroInstallProfile.forId(distro.id) ?: return
+        Thread {
+            GpuDriverInstaller.refreshInstalled(this, distro.id, p.prootName, p.method == "chroot")
+        }.start()
+    }
+
+    /** Offline install pending: wait for internet (app open), then resume it. */
+    private fun armDriverResume() {
+        val id = GpuDriverInstaller.pendingDistro(this) ?: return
+        if (DriverRelease.online(this)) return
+        android.widget.Toast.makeText(
+            this,
+            "No internet — GPU driver not installed. Linux will use software rendering until you retry (Distro Settings > Hardware Acceleration > Retry). Waiting for internet…",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+        DriverRelease.armResume(this) {
+            runOnUiThread {
+                val d = com.ivarna.fluxlinux.core.data.DistroRepository.supportedDistros
+                    .find { it.id == id } ?: return@runOnUiThread
+                val c = d.components.find { it.id == "hw_accel" } ?: return@runOnUiThread
+                runEmbeddedComponent(this, d, c, mapOf("FLUX_GPU" to "turnip"), false)
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        GpuDriverInstaller.onPending = null
+        DriverRelease.disarm(this)
+        super.onDestroy()
+    }
+
     @OptIn(ExperimentalPermissionsApi::class, ExperimentalHazeMaterialsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        GpuDriverInstaller.onPending = { runOnUiThread { armDriverResume() } }
+        armDriverResume()
         if (savedInstanceState == null) {
             dispatchLegacyTermuxCallback(intent)
         }

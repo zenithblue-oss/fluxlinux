@@ -272,7 +272,8 @@ object ProotCommandBuilder {
                 user = user,
                 guestCmd = guestCmd,
                 hostEnv = envMap,
-                useSharedTmp = useSharedTmp
+                useSharedTmp = useSharedTmp,
+                bindKgsl = File("/dev/kgsl-3d0").exists() // Turnip needs the KGSL node
             )?.let { return it }
             Log.i("ProotCommandBuilder", "direct launch: layout not recognised for $distro, using proot-distro")
         }

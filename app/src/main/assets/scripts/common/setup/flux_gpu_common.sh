@@ -106,6 +106,10 @@ if [ -r /etc/fluxlinux/gpu_mode ]; then
     FLUX_GPU_MODE=$(tr -d '[:space:]' </etc/fluxlinux/gpu_mode)
     export FLUX_GPU_MODE
 fi
+# Turnip installed (marker) → hardware GL/Vulkan in terminal sessions too.
+if [ "${FLUX_GPU_MODE:-}" = turnip ] && [ -r /etc/fluxlinux/turnip_version ]; then
+    export MESA_LOADER_DRIVER_OVERRIDE=kgsl
+fi
 PROFILE
     chmod 644 /etc/profile.d/flux-gpu.sh 2>/dev/null || true
 }

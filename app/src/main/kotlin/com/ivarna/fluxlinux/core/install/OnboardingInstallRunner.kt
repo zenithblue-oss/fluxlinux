@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.ivarna.fluxlinux.core.gpu.GpuDriverInstaller
 import com.ivarna.fluxlinux.core.root.RootShell
 import com.ivarna.fluxlinux.core.service.BaseInstallService
 import com.ivarna.fluxlinux.core.terminal.GpuAccelDetector
@@ -542,12 +543,15 @@ class OnboardingInstallRunner(private val ctx: Context) {
             phases, phaseIndex, onProgress,
             "Hardware acceleration: mode=${gpu.mode} vendor=${gpu.vendorHint}"
         )
+        // Adreno: app picks the stable Turnip release (empty map elsewhere).
+        val driverEnv = GpuDriverInstaller.guestEnv(appCtx, profile.distroId)
+        driverEnv["FLUX_TURNIP_MSG"]?.let { log(phases, phaseIndex, onProgress, it) }
         val ok = try {
             if (method == "chroot") {
                 val path = chrootPath
                     ?: com.ivarna.fluxlinux.core.root.ChrootPaths.CHROOT_PATH
                 val payload = BaseDesktopInstallPlan.hwAccelPayload(
-                    appCtx, profile.distroId, gpu.mode, gpu.vendorHint
+                    appCtx, profile.distroId, gpu.mode, gpu.vendorHint, driverEnv
                 )
                 runChrootGuestBlocking(payload, user = "root", phases, phaseIndex, onProgress, path) == 0
             } else {
@@ -556,12 +560,23 @@ class OnboardingInstallRunner(private val ctx: Context) {
                     phases, phaseIndex, onProgress, gen,
                     prootName = profile.prootName,
                     scriptAssetPath = script,
-                    envPrefix = "FLUX_GPU=${gpu.mode} FLUX_GPU_VENDOR=${gpu.vendorHint}"
+                    envPrefix = "FLUX_GPU=${gpu.mode} FLUX_GPU_VENDOR=${gpu.vendorHint}" +
+                        driverEnv.entries.joinToString("") {
+                            " ${it.key}='${it.value.replace("'", "")}'"
+                        }
                 )
             }
         } catch (e: Exception) {
             log(phases, phaseIndex, onProgress, "Hardware acceleration error: ${e.message}")
             false
+        }
+        if (driverEnv.isNotEmpty()) {
+            GpuDriverInstaller.refreshInstalled(
+                appCtx, profile.distroId, profile.prootName, method == "chroot"
+            )
+        }
+        if (GpuDriverInstaller.pendingDistro(appCtx) != null) {
+            GpuDriverInstaller.onPending?.invoke()
         }
         if (ok) {
             log(phases, phaseIndex, onProgress, "Hardware acceleration installed (${gpu.mode})")

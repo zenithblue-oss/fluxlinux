@@ -98,45 +98,6 @@ elif command -v apt-get >/dev/null 2>&1; then
         || _pkg_add mesa-utils libgl1-mesa-dri libegl1 curl || true
 fi
 
-flux_gpu_tarball_suffix() {
-    _id=""
-    _ver=""
-    if [ -r /etc/os-release ]; then
-        # shellcheck disable=SC1091
-        . /etc/os-release
-        _id=$(printf '%s' "${ID:-}" | tr '[:upper:]' '[:lower:]')
-        _ver=$(printf '%s' "${VERSION_ID:-}" | tr -d '"')
-    elif [ -r /usr/lib/os-release ]; then
-        # shellcheck disable=SC1091
-        . /usr/lib/os-release
-        _id=$(printf '%s' "${ID:-}" | tr '[:upper:]' '[:lower:]')
-        _ver=$(printf '%s' "${VERSION_ID:-}" | tr -d '"')
-    fi
-    case "$_id" in
-        debian|raspbian) printf '%s\n' debian_trixie ;;
-        ubuntu)
-            case "$_ver" in
-                26*) printf '%s\n' ubuntu_resolute ;;
-                *) printf '%s\n' ubuntu_noble ;;
-            esac
-            ;;
-        deepin) printf '%s\n' debian_trixie ;;
-        fedora)
-            case "$_ver" in
-                44*) printf '%s\n' fedora_44 ;;
-                *) printf '%s\n' fedora_43 ;;
-            esac
-            ;;
-        void) printf '%s\n' void ;;
-        manjaro|arch|archlinux) printf '%s\n' archlinux ;;
-        alpine) printf '%s\n' alpine_3.24 ;;
-        opensuse*|sle*) printf '\n' ;;
-        chimera) printf '\n' ;;
-        kali|parrot) printf '%s\n' debian_trixie ;;
-        *) printf '\n' ;;
-    esac
-}
-
 _flux_gpu_fetch() {
     _url=$1
     _out=$2
@@ -250,42 +211,37 @@ fi
 
 # ── turnip tarball ───────────────────────────────────────────────────────────
 
-TURNIP_VERSION=26.2.0-devel-20260709
-MESA_VERSION=26.2.0-devel-20260709
-BASE_DL=https://github.com/lfdevs/mesa-for-android-container/releases/download
+# The app picked the stable release for this distro (FLUX_TURNIP_1 = latest,
+# FLUX_TURNIP_2 = pinned fallback), each "version url sha256". Marker file =
+# installed version. No plan (not Adreno / unsupported / offline) → VirGL.
 
 if [ "$MODE" = turnip ]; then
-    SUFFIX=$(flux_gpu_tarball_suffix)
-    if [ -z "$SUFFIX" ]; then
-        echo "FluxLinux: no Turnip tarball for this guest (no-tarball) — VirGL."
-        MODE=virgl
-        VENDOR_HINT="${VENDOR_HINT}+no-tarball"
-    else
-        TURNIP_URL="${BASE_DL}/turnip-${TURNIP_VERSION}/turnip_${TURNIP_VERSION}_${SUFFIX}_arm64.tar.gz"
-        MESA_URL="${BASE_DL}/mesa-${MESA_VERSION}/mesa-for-android-container_${MESA_VERSION}_${SUFFIX}_arm64.tar.gz"
-        echo "FluxLinux: Downloading Turnip ${TURNIP_VERSION} (${SUFFIX})..."
-        if _flux_gpu_fetch "$TURNIP_URL" /tmp/turnip.tar.gz \
+    TURNIP_OK=""
+    rm -f /etc/fluxlinux/turnip_version
+    for _n in 1 2; do
+        eval "_spec=\${FLUX_TURNIP_$_n:-}"
+        [ -n "$_spec" ] || continue
+        # shellcheck disable=SC2086
+        set -- $_spec
+        echo "FluxLinux: Downloading Mesa/Turnip $1..."
+        if _flux_gpu_fetch "$2" /tmp/turnip.tar.gz \
+            && [ "$(sha256sum /tmp/turnip.tar.gz | cut -d' ' -f1)" = "$3" ] \
             && tar -zxf /tmp/turnip.tar.gz -C /; then
             command -v ldconfig >/dev/null 2>&1 && ldconfig || true
-            rm -f /tmp/turnip.tar.gz
-            echo "FluxLinux: Turnip extracted."
-            echo "FluxLinux: Upgrading Mesa ${MESA_VERSION}..."
-            if _flux_gpu_fetch "$MESA_URL" /tmp/mesa-upgrade.tar.gz \
-                && tar -zxf /tmp/mesa-upgrade.tar.gz -C /; then
-                command -v ldconfig >/dev/null 2>&1 && ldconfig || true
-                rm -f /tmp/mesa-upgrade.tar.gz
-                echo "FluxLinux: Mesa upgraded."
-                _flux_gpu_pin_mesa
-            else
-                rm -f /tmp/mesa-upgrade.tar.gz
-                echo "FluxLinux: [WARN] Mesa upgrade failed — stock Mesa + Turnip remain."
-            fi
-        else
-            rm -f /tmp/turnip.tar.gz /tmp/mesa-upgrade.tar.gz
-            echo "FluxLinux: Turnip download/extract failed — VirGL."
-            MODE=virgl
-            VENDOR_HINT="${VENDOR_HINT}+turnip-download-fail"
+            printf '%s\n' "$1" > /etc/fluxlinux/turnip_version
+            TURNIP_OK=$1
+            break
         fi
+        echo "FluxLinux: [WARN] Mesa/Turnip $1 download, sha256 or extract failed."
+    done
+    rm -f /tmp/turnip.tar.gz
+    if [ -n "$TURNIP_OK" ]; then
+        echo "FluxLinux: Mesa/Turnip $TURNIP_OK installed."
+        _flux_gpu_pin_mesa
+    else
+        echo "FluxLinux: ${FLUX_TURNIP_MSG:-GPU driver download failed — software rendering until you retry}"
+        MODE=virgl
+        VENDOR_HINT="${VENDOR_HINT}+turnip-unavailable"
     fi
 fi
 

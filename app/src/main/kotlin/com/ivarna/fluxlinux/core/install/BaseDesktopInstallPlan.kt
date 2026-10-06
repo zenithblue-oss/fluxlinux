@@ -95,7 +95,8 @@ object BaseDesktopInstallPlan {
         ctx: Context,
         distroId: String,
         fluxGpu: String,
-        vendor: String
+        vendor: String,
+        extraEnv: Map<String, String> = emptyMap()
     ): String {
         val profile = DistroInstallProfile.forId(distroId)
             ?: DistroInstallProfile.require("debian")
@@ -108,6 +109,9 @@ object BaseDesktopInstallPlan {
         return buildString {
             append("export FLUX_GPU='").append(fluxGpu).append("'\n")
             append("export FLUX_GPU_VENDOR='").append(vendor).append("'\n")
+            extraEnv.forEach { (k, v) ->
+                append("export ").append(k).append("='").append(v.replace("'", "")).append("'\n")
+            }
             append("export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n\n")
             if (common.isNotBlank()) {
                 append(common).append("\n\n")
