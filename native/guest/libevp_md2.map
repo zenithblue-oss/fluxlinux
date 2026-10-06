@@ -1,0 +1,4 @@
+OPENSSL_3.0.0 {
+  global: EVP_md2;
+  local: *;
+};

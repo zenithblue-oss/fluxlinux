@@ -324,9 +324,9 @@ def main() -> None:
     ap.add_argument(
         "--loader-apk",
         type=Path,
-        default=None,
+        default=ROOT / "app/src/main/assets/loader.apk",
         help="Path to loader.apk (default: app/src/main/assets/loader.apk, "
-        "or loader.bin if the scanner already deleted the .apk)",
+        "built by scripts/build_loader_apk.sh)",
     )
     ap.add_argument(
         "--allow-missing",
@@ -345,10 +345,6 @@ def main() -> None:
         help="full = host+GUI (pulse/xkb); terminal-proot = shell+proot only",
     )
     args = ap.parse_args()
-    if args.loader_apk is None:
-        apk = ROOT / "app/src/main/assets/loader.apk"
-        fallback = ROOT / "app/src/main/assets/loader.bin"
-        args.loader_apk = apk if apk.is_file() else fallback
 
     package_name = args.package_name
     deb_dir = (args.deb_dir or ROOT / "native/output" / package_name).resolve()

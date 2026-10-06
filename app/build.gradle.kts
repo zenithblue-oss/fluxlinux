@@ -161,22 +161,8 @@ val flavorAppIds = mapOf(
     "zenithblue" to "com.zenithblue.fluxlinux"
 )
 
-// F-Droid's scanner always deletes *.apk before Gradle. Keep a .bin twin
-// (scanignored) and restore assets/loader.apk so HostScriptDeployer still
-// finds it in the F-Droid-built APK.
-tasks.register("restoreLoaderApk") {
-    val dest = file("src/main/assets/loader.apk")
-    val src = file("src/main/assets/loader.bin")
-    inputs.file(src)
-    outputs.file(dest)
-    doLast {
-        if (src.isFile && (!dest.isFile || dest.length() != src.length())) {
-            src.copyTo(dest, overwrite = true)
-        }
-    }
-}
-tasks.matching { it.name == "preBuild" || it.name.startsWith("pre") && it.name.endsWith("Build") }
-    .configureEach { dependsOn("restoreLoaderApk") }
+// assets/loader.apk is built from native/loader/Loader.java by
+// scripts/build_loader_apk.sh (F-Droid rebuilds it after the scanner).
 
 for ((flavorName, appId) in flavorAppIds) {
     val taskName = "packageHostAssets" + flavorName.replaceFirstChar { it.uppercase() }
