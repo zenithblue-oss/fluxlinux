@@ -7,7 +7,7 @@ Status: `[ ]` todo, `[~]` in progress, `[x]` done.
 
 ## 1. Shared storage in guests (#48 no /sdcard on HyperOS, #29 USB OTG / lsblk)
 
-Status: [ ]
+Status: [x] done. Device test passed on Poco X6 Pro (2311DRK48I) and Lenovo TB336FU, ivarna debug: before grant guest `/sdcard/Download` showed a partial list and writes failed; after `appops set --uid com.ivarna.fluxlinux MANAGE_EXTERNAL_STORAGE allow` guest listed the full folder, a file written in guest `/sdcard` was readable via `adb shell cat /sdcard/...`, no app restart needed; Settings card shows "Shared storage" Not allowed/Allowed and opens the All files access page. Desktop start_gui (proot-distro path) and OTG volumes not device-tested. Chroot scripts already bind `/sdcard` (verified by grep only).
 
 - Goal: guide user to grant All-files access, then bind `/sdcard` (-> `/storage/emulated/0`) and `/storage` (external SD / OTG volumes where readable) into proot and chroot guests.
 - Reference (nativecode-ai, `~/repos/termux-lib`):
