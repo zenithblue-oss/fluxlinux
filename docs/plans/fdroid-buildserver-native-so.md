@@ -10,6 +10,45 @@
 
 This is the local-repro map for “those `.so` files must be built,” plus a pass/fail review against F-Droid’s **Inclusion Policy** and the **`fdroid build` runner**.
 
+> **Superseded 2026-10-06.** The old §0 verdict and sections 0.1, 2, 3.2, 3.4 and 5 below describe the
+> 2.0.0 "prebuilt + scanignore" approach that F-Droid rejected (MR 46098,
+> `scandelete: [app, native]`). The current design is §0 directly below.
+
+## §0. Current design (2.0.1+): every native file built from source on F-Droid
+
+F-Droid cannot run Docker, so termux-packages is built **on the buildserver host**.
+Only distro rootfs archives (and optional guest GPU / SDK archives) are
+downloaded at runtime, after opt-in; the host bootstrap is
+built and bundled in the APK.
+
+| Output | Source | Built by (recipe `build:`, after the scanner) |
+| --- | --- | --- |
+| `libbash/libproot/libloader/libloader32/libpulseaudio/libpactl.so`, `pulse-runtime/*.so`, `assets/bootstrap.tar` | `native/termux-packages` submodule (termux/termux-packages `ebe0dcc`) + `native/patches/<pkg>/` | `NO_DOCKER=1 scripts/build_packages_for_appid.sh com.ivarna.fluxlinux --list termux-lib-ssot`, then `scripts/assemble_bootstrap.py`; Gradle `packageHostAssetsIvarna` stages them |
+| `assets/loader.apk` | `native/loader/Loader.java` | `scripts/build_loader_apk.sh` (javac + d8) |
+| `bwrap-proot-shim`, `libevp_md2.so` (guest, aarch64 glibc) | `bwrap-proot-shim.c`, `native/guest/libevp_md2.c` | `scripts/build_guest_helpers.sh` (`gcc-aarch64-linux-gnu`) |
+| `libXlorie.so` | `termux-x11/src/main/cpp` | Gradle `:termux-x11` (NDK r29) |
+| `libtermux.so` | `terminal-emulator/src/main/jni` | Gradle `:terminal-emulator` (NDK r29) |
+
+Host requirements (see `sudo:` in `com.ivarna.fluxlinux.yml`): Debian build
+tools derived from termux `scripts/setup-ubuntu.sh` (no i386, no apt.llvm.org),
+`fuse-overlayfs` + `/dev/fuse` (termux mounts the NDK toolchain with it), and a
+writable `/data/data/com.ivarna.fluxlinux` owned by the build user. termux
+`build-package.sh` downloads each package's upstream source tarball (sha256-pinned),
+so the `build:` step needs network.
+
+Trixie vs. termux's Ubuntu image (handled in the recipe / `NO_DOCKER` branch):
+JDK 17 comes from bookworm (`termux-am` hardcodes it; AGP 7.4 D8 crashes on JDK 21
+classes); host clang is Debian's (termux wants `clang-21`); `xcb-proto` cleanup
+uses `TERMUX_PYTHON_VERSION` (Debian python is 3.13); `webrtc-audio-processing`
+is fetched from Debian's identical orig tarball (freedesktop.org returns HTTP 418
+to curl); `TAR_OPTIONS=--no-same-owner` for root-in-userns test chroots.
+Local repro (Debian trixie chroot, clean prefix, warm source cache): 2382 s for
+the `build:` step + ~330 s Gradle.
+
+Prebuilts still tracked in git (`native/output/*.deb`, `native/bootstrap/*/jniLibs`,
+`pulse-runtime`, `loader.apk`, guest helpers) are for local dev only; the recipe
+`scandelete`s / `rm -rf`s them and rebuilds.
+
 ---
 
 ## 0. Review verdict (will they pass?)
@@ -241,17 +280,11 @@ Runtime downloads (rootfs, Mesa/Turnip, optional SDK) stay **TetheredNet** + the
 
 ---
 
-## 5. Recommended path
+## 5. Recommended path (superseded 2026-10-06 — see §0 at top)
 
-1. **Do not** compile termux-packages inside `fdroid build`.
-2. Commit the Xlorie tree (`.gitmodules` + `cpp/` + gradle) before tagging `v2.0.0`.
-3. fdroiddata `Builds` for `2.0.0` / `12`: `gradle: [ivarna]`, `submodules: yes`, `sudo` `binutils bison patch` + assemble, **§2 `scanignore` only**. In-repo yml now matches.
-4. Cite `scripts/build_packages_for_appid.sh` + termux-packages + termux-x11 + pulse overlay in the MR (`docs/releases/fdroid-update-mr.md`).
-5. Cheap local gate (not run): `debian:trixie-slim` + `fdroid lint` / `fdroid scanner`.
-6. Real local gate (not run): `buildserver-trixie` + `fdroid build --on-server --refresh-scanner --no-tarball com.ivarna.fluxlinux:12`.
-7. Optional later: stop shipping `loader.apk` under a `.apk` name so the F-Droid APK still has `assets/loader.apk` after the scanner (e.g. store `loader.bin`, copy in Gradle). Not required for PREFIX — GitHub `bootstrap_com.ivarna.fluxlinux.tar` already contains `usr/libexec/termux-x11/loader.apk`.
-
-Keep Ivarna’s GitHub bootstrap download + existing consent page.
+The 2.0.0 plan below ("do not compile termux-packages inside `fdroid build`",
+prebuilt `.deb`s + `scanignore`) failed review: the maintainer `scandelete`s every
+prebuilt, so F-Droid **must** rebuild termux-packages. Current path is §0.
 
 ---
 
