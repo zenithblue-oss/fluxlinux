@@ -36,15 +36,12 @@ from The Open Group.
 #include "xkbsrv.h"
 #include "xserver-properties.h"
 #include "exevents.h"
-#include "dix.h"
 #include "lorie.h"
 
 #define XI_PEN	"TERMUX-X11 PEN"
 #define XI_ERASER	"TERMUX-X11 ERASER"
 
 __unused DeviceIntPtr lorieMouse, lorieTouch, lorieKeyboard, loriePen, lorieEraser;
-static DeviceIntPtr lorieTouchMasterPointer, lorieTouchMasterKeyboard;
-
 void
 ProcessInputEvents(void) {
     mieqProcessInputEvents();
@@ -283,20 +280,12 @@ InitInput(__unused int argc, __unused char *argv[]) {
     EnableDevice(lorieTouch, TRUE);
     EnableDevice(lorieKeyboard, TRUE);
     AttachDevice(NULL, lorieMouse, inputInfo.pointer);
+    AttachDevice(NULL, lorieTouch, inputInfo.pointer);
     AttachDevice(NULL, lorieKeyboard, inputInfo.keyboard);
 
-    // Give touch its own master pointer: some clients (e.g. Chromium) drop touches sharing
-    // a master with a regular pointer device.
-    if (AllocDevicePair(serverClient, "Lorie touch", &lorieTouchMasterPointer, &lorieTouchMasterKeyboard,
-                         CorePointerProc, CoreKeyboardProc, TRUE) == Success) {
-        ActivateDevice(lorieTouchMasterPointer, TRUE);
-        ActivateDevice(lorieTouchMasterKeyboard, TRUE);
-        EnableDevice(lorieTouchMasterPointer, TRUE);
-        EnableDevice(lorieTouchMasterKeyboard, TRUE);
-        AttachDevice(NULL, lorieTouch, lorieTouchMasterPointer);
-    } else {
-        AttachDevice(NULL, lorieTouch, inputInfo.pointer);
-    }
+    // No extra master pair for touch: Chromium's TouchFactory keeps only the LAST master
+    // keyboard from XIQueryDevice and drops key events from any other one (issue #45;
+    // upstream reverted the same change in 139f219).
 
     // We should explicitly create stylus pen and eraser devices here for the case of X server reset.
     if (loriePen && lorieEraser) {

@@ -105,7 +105,8 @@ echo "FluxLinux: APK path = $TERMUX_X11_APK_PATH"
 # This is the only location app_process can dlopen without corrupting its linker namespace
 APP_LIB_DIR="/data/data/$PKG/lib"
 mkdir -p "$APP_LIB_DIR" 2>/dev/null
-if [ ! -f "$APP_LIB_DIR/libXlorie.so" ] && [ -n "$TERMUX_X11_APK_PATH" ]; then
+# Re-extract when the APK is newer, else an app update keeps running the old X server.
+if { [ ! -f "$APP_LIB_DIR/libXlorie.so" ] || [ "$TERMUX_X11_APK_PATH" -nt "$APP_LIB_DIR/libXlorie.so" ]; } && [ -n "$TERMUX_X11_APK_PATH" ]; then
   echo "FluxLinux: Extracting libXlorie.so from APK..."
   # Try arm64 first, then armeabi-v7a
   ( cd "$APP_LIB_DIR" && \
@@ -114,6 +115,7 @@ if [ ! -f "$APP_LIB_DIR/libXlorie.so" ] && [ -n "$TERMUX_X11_APK_PATH" ]; then
   ( cd "$APP_LIB_DIR" && \
     unzip -o "$TERMUX_X11_APK_PATH" 'lib/armeabi-v7a/libXlorie.so' 2>/dev/null && \
     mv -f lib/armeabi-v7a/libXlorie.so . && rm -rf lib )
+  touch "$APP_LIB_DIR/libXlorie.so" 2>/dev/null # unzip keeps the 1981 entry mtime
   ls -la "$APP_LIB_DIR/libXlorie.so" 2>/dev/null && \
     echo "FluxLinux: libXlorie.so ready in $APP_LIB_DIR" || \
     echo "FluxLinux: [WARN] libXlorie.so extraction failed"
