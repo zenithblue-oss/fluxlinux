@@ -39,8 +39,8 @@ class HostBootstrapTest {
     }
 
     @Test
-    fun downloadsFromRelease_ivarnaOnly() {
-        assertTrue(HostBootstrap.downloadsFromRelease(HostBootstrap.IVARNA_PACKAGE))
+    fun downloadsFromRelease_neverBothFlavorsShipBootstrap() {
+        assertFalse(HostBootstrap.downloadsFromRelease(HostBootstrap.IVARNA_PACKAGE))
         assertFalse(HostBootstrap.downloadsFromRelease(HostBootstrap.ZENITHBLUE_PACKAGE))
     }
 }
