@@ -103,6 +103,10 @@ if [[ "${NO_DOCKER:-0}" != "1" ]] && ! command -v docker >/dev/null 2>&1; then
 fi
 if [[ "${NO_DOCKER:-0}" == "1" ]]; then
   BUILDER=(./build-package.sh)
+  # termux defaults JAVA_HOME to Ubuntu's JDK 17 path; fall back to the host javac.
+  if [[ ! -d "${TERMUX_JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}" ]] && command -v javac >/dev/null; then
+    export TERMUX_JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+  fi
   echo "[*] NO_DOCKER=1 — building on host (NDK=${NDK:-<termux default>})" | tee -a "$LOG"
 else
   BUILDER=(./scripts/run-docker.sh ./build-package.sh)
@@ -138,8 +142,14 @@ fail=0
 failed_pkgs=()
 
 for pkg in "${PKGS[@]}"; do
-  echo "=== building $pkg for $CUSTOM_PACKAGE ($(date +%T)) ===" | tee -a "$LOG"
-  if "${BUILDER[@]}" "${BUILD_FLAGS[@]}" "$pkg" 2>&1 | tee -a "$LOG"; then
+  # Lists name subpackages (curl, xz-utils, …); build-package.sh needs the parent.
+  src_pkg="$pkg"
+  if ! ls -d {packages,x11-packages,root-packages}/"$pkg" >/dev/null 2>&1; then
+    sub="$(ls {packages,x11-packages,root-packages}/*/"$pkg".subpackage.sh 2>/dev/null | head -1)"
+    [[ -n "$sub" ]] && src_pkg="$(basename "$(dirname "$sub")")"
+  fi
+  echo "=== building $pkg (from $src_pkg) for $CUSTOM_PACKAGE ($(date +%T)) ===" | tee -a "$LOG"
+  if "${BUILDER[@]}" "${BUILD_FLAGS[@]}" "$src_pkg" 2>&1 | tee -a "$LOG"; then
     echo "OK  $pkg" | tee -a "$LOG"
     ok=$((ok + 1))
   else
