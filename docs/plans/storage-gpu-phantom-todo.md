@@ -69,3 +69,8 @@ Status: [x] Adreno done and verified on OnePlus 13R (marker -> MESA_LOADER_DRIVE
   - None: `LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`.
 - Files: `core/terminal/ProotCommandBuilder.kt` (`guestEnvVars`/`guestLoginEnv`), chroot env in `assets/scripts/chroot/fluxlinux_chroot.sh`, `assets/scripts/**/start_gui*.sh`, `assets/scripts/common/setup/{setup_hw_accel_guest.sh,flux_gpu_common.sh}`, bind `/dev/kgsl-3d0` (Adreno) or `/dev/mali0` (Mali) into proot/chroot.
 - Acceptance: `glxinfo -B` in guest desktop reports the hardware GPU (Turnip/PanVK via zink); uninstalled driver reports llvmpipe.
+
+## Follow-ups (done)
+- [x] Host env stale after app update: `fluxlinux-host.env` was only written at bootstrap extract; warm path never refreshed it and the deploy marker ignored app updates. Now `refreshHostEnvIfStale` runs in `deployScripts`, marker is stamped with `lastUpdateTime`, warm `prepareHostBlocking` calls `deployScripts`. Verified on Lenovo TB336FU.
+- [x] Compositor log is driver-neutral ("for GPU acceleration").
+- [x] proot/chroot start_gui wait up to 15s for `X0` socket, fail clearly, ready line only after socket + live PID; chroot wrapper removes stale `X0`.
