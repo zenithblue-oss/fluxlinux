@@ -128,7 +128,7 @@ class BaseInstallService : Service() {
         val clamped = percent.coerceIn(0, 100)
         val body = if (text.isNotBlank()) text else "Keeping install alive…"
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_flux)
             .setContentTitle(title)
             .setContentText(body)
             .setSubText("$clamped%")

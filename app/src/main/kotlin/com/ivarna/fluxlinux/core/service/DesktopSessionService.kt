@@ -57,7 +57,7 @@ class DesktopSessionService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FluxLinux — Desktop Session")
             .setContentText("XFCE / GUI host services are active. Open app to stop.")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_flux)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

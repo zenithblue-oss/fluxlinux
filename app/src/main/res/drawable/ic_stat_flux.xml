@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification small icon: monochrome ">_" glyph (GitHub #42 — full-color
+     inset bitmaps crash HyperOS with "Couldn't create icon"). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.3,5.7 L10.6,12 L4.3,18.3 L5.7,19.7 L13.4,12 L5.7,4.3 Z M12,17 L20,17 L20,19 L12,19 Z" />
+</vector>

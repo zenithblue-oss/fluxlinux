@@ -76,7 +76,7 @@ class AppTerminalService : Service() {
                 if (count == 1) "1 terminal session running"
                 else "$count terminal sessions running"
             )
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_flux)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
