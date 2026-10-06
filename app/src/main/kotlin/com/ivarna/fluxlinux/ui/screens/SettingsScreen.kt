@@ -1,8 +1,22 @@
 package com.ivarna.fluxlinux.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings as AndroidSettings
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.SdStorage
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -59,6 +73,13 @@ import com.google.accompanist.permissions.PermissionState
 import com.ivarna.fluxlinux.R
 import com.ivarna.fluxlinux.core.utils.ThemeMode
 import com.ivarna.fluxlinux.ui.components.GlassSettingCard
+
+private fun storageAccessDeclared(context: Context): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && runCatching {
+        context.packageManager.getPackageInfo(
+            context.packageName, PackageManager.GET_PERMISSIONS
+        ).requestedPermissions?.contains(Manifest.permission.MANAGE_EXTERNAL_STORAGE) == true
+    }.getOrDefault(false)
 
 /**
  * Settings hub (nativecode-style): nav cards open detail pages.
@@ -141,6 +162,35 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
             )
 
+            // F-Droid (ivarna) flavor only: its manifest declares the permission, Play's does not.
+            if (storageAccessDeclared(context)) {
+                var lifecycleKey by remember { mutableIntStateOf(0) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, e ->
+                        if (e == Lifecycle.Event.ON_RESUME) lifecycleKey++
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+                val granted = remember(lifecycleKey) { Environment.isExternalStorageManager() }
+                SettingsNavCard(
+                    icon = Icons.Default.SdStorage,
+                    title = "Shared storage",
+                    subtitle = if (granted) "Allowed: /sdcard and /storage (SD, USB OTG) are mounted in guests"
+                    else "Not allowed: guests cannot see /sdcard or USB drives. Tap, then enable All files access",
+                    onClick = {
+                        val pkg = Uri.parse("package:${context.packageName}")
+                        runCatching {
+                            context.startActivity(
+                                Intent(AndroidSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg)
+                            )
+                        }.onFailure {
+                            context.startActivity(Intent(AndroidSettings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                        }
+                    }
+                )
+            }
             SettingsNavCard(
                 icon = Icons.Default.Terminal,
                 title = "Terminal",

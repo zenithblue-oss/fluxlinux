@@ -85,16 +85,16 @@ object ProotCommandBuilder {
             PosixFilePermission.OTHERS_EXECUTE in Files.getPosixFilePermissions(Paths.get(p))
     }.getOrDefault(false)
 
-    private fun storageBinds(): List<String> {
-        if (File("/storage").canRead()) {
-            return if (File("/storage/emulated/0").canRead()) listOf(
+    internal fun storageBinds(canRead: (String) -> Boolean = { File(it).canRead() }): List<String> {
+        if (canRead("/storage")) {
+            return if (canRead("/storage/emulated/0")) listOf(
                 "--bind=/storage",
                 "--bind=/storage/emulated/0:/sdcard",
                 "--bind=/storage/emulated/0:/mnt/sdcard"
             ) else listOf("--bind=/storage")
         }
         val p = listOf("/storage/self/primary", "/storage/emulated/0", "/sdcard")
-            .firstOrNull { File(it).canRead() } ?: return emptyList()
+            .firstOrNull { canRead(it) } ?: return emptyList()
         return listOf("/mnt/sdcard", "/sdcard", "/storage/emulated/0", "/storage/self/primary")
             .map { "--bind=$p:$it" }
     }

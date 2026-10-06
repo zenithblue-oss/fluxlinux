@@ -9,6 +9,19 @@ import org.junit.Test
 class ProotCommandBuilderTest {
 
     @Test
+    fun storageBinds_withAllFilesAccess_bindsStorageAndSdcard() {
+        val b = ProotCommandBuilder.storageBinds { true }
+        assertTrue(b.contains("--bind=/storage"))
+        assertTrue(b.contains("--bind=/storage/emulated/0:/sdcard"))
+    }
+
+    @Test
+    fun storageBinds_withoutPermission_bindsNoSdcard() {
+        assertEquals(listOf("--bind=/storage"), ProotCommandBuilder.storageBinds { it == "/storage" })
+        assertTrue(ProotCommandBuilder.storageBinds { false }.isEmpty())
+    }
+
+    @Test
     fun guestLoginEnv_setsPulseTcpLocalhost() {
         val env = ProotCommandBuilder.guestLoginEnv("flux")
         assertTrue(env.contains("PULSE_SERVER=tcp:127.0.0.1"))
