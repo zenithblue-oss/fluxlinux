@@ -551,6 +551,34 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // One-time v1.x notice (#37): v1 distros lived in the external Termux app.
+                val noticePrefs = remember { getSharedPreferences("flux_v1_notice", MODE_PRIVATE) }
+                var showV1Notice by remember {
+                    mutableStateOf(
+                        !noticePrefs.getBoolean("seen", false) &&
+                            com.ivarna.fluxlinux.core.legacy.LegacyTermuxBridge.isTermuxInstalled(this@MainActivity)
+                    )
+                }
+                if (showV1Notice) {
+                    val dismissV1Notice = {
+                        noticePrefs.edit().putBoolean("seen", true).apply()
+                        showV1Notice = false
+                    }
+                    AlertDialog(
+                        onDismissRequest = dismissV1Notice,
+                        title = { Text("Upgrading from FluxLinux 1.x?") },
+                        text = {
+                            Text(
+                                "Your v1.x distros live in the Termux app and were not removed by this update. " +
+                                    "FluxLinux 2 uses its own runtime; reinstall distros here.\n\n" +
+                                    "Old data is still in Termux. Back up with `proot-distro backup <name>` " +
+                                    "in Termux, or delete it in Settings -> Legacy Termux."
+                            )
+                        },
+                        confirmButton = { TextButton(onClick = dismissV1Notice) { Text("OK") } }
+                    )
+                }
+
                 // Permission State (Lifted for Settings and Home access)
                 val permissionState = rememberPermissionState(
                     permission = "com.termux.permission.RUN_COMMAND"
