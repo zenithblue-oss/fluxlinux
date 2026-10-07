@@ -79,3 +79,34 @@ Status: [x] Adreno done and verified on OnePlus 13R (marker -> MESA_LOADER_DRIVE
 - [x] `feat(desktop): run KDE on the built-in X11` — KDE uses `DesktopLauncher.start(..., "kde", gpu)` -> `start_gui.sh` / `start_gui_chroot.sh` -> `start_debian13_gui.sh` with `FLUX_DESKTOP=kde` (`startplasma-x11`) and `FLUX_GPU_RUNTIME=software` for the Software option; Stop uses the XFCE stop path. Removed Termux RunCommand KDE intents, `start_gui_kde.sh`, `scripts/debian/chroot/{start,stop}`. Verified on Lenovo (proot, llvmpipe). Not verified: chroot, PanVK/Turnip renderer (Poco was in use by another session).
 - [ ] `feat(desktop): KDE OpenGL compositing via zink (opt-in)` — `flux_kde_env.sh` (written by both start scripts) sets `KWIN_COMPOSE=O2` + zink-on-Turnip (probe `glxinfo`, auto-fallback to kgsl) ONLY when guest has `/etc/fluxlinux/kde_gl`; default stays `N`. Reason: on Poco X6 Pro (PanVK beta.17, Mesa 25.0.7) `glxinfo -B` = `zink Vulkan 1.4(Mali-G615 MC6 (MESA_PANVK))`, glxgears ~105-135 FPS, `kwin_x11 --replace` logs "OpenGL compositing successfully initialized", but the X screen stays black with O2 (kwin + plasmashell alive, 3 min), also with `KWIN_USE_BUFFER_AGE=0`/sync vars and without `MESA_VK_WSI_DEBUG=sw`; `KWIN_OPENGL_INTERFACE=egl` makes kwin exit ("Invalid QOpenGLContext::globalShareContext"). O2 + llvmpipe is visible, so zink present to the composite overlay under Xlorie is the break. TODO: fix zink->overlay presentation (Xlorie composite overlay / DRI3), then make default for Turnip/PanVK. Turnip zink+O2 untested (OnePlus 13R unreachable over adb). Update: OnePlus 13R (Turnip, Mesa 26.3) O2 + zink also gives a black screen (kwin + plasmashell alive, `KWIN_COMPOSE=O2`); default Turnip KDE GL stays kgsl (glxgears `vblank_mode=0` ~990 FPS kgsl vs ~247 FPS zink `Turnip Adreno (TM) 750`), so zink is not made default.
 - [x] `fix(desktop): disable KWin compositing and effects by default on KDE` — `setup_kde_debian.sh` writes `/etc/xdg/kwinrc` (`[Compositing] Enabled=false`, blur/contrast/slide/translucency plugins off) + `/etc/xdg/kdeglobals` (`AnimationDurationFactor=0`) if absent; `flux_kde_env.sh` (both start scripts) re-applies in the flux user config via `kwriteconfig6/5` each start (existing installs), and sets `Enabled=true` only when `KWIN_COMPOSE=O2` (kde_gl opt-in). `KWIN_COMPOSE=N` kept. Verified: Lenovo (existing install: user kwinrc `Enabled=false`, plugins off, `AnimationDurationFactor=0`, `KWIN_COMPOSE=N`, Plasma shows), OnePlus 13R (fresh install via the KDE component: `/etc/xdg/kwinrc` + `kdeglobals` written, Plasma shows). Not verified: `qdbus` Compositing.active (D-Bus NoReply from the probe), chroot, Arch legacy KDE script (not changed), user config revert after removing the kde_gl marker.
+
+## E2E clean-install test (2026-10-07)
+Fresh install of the ivarna debug APK, onboarding through the UI, Debian + XFCE then KDE installed from the app.
+
+| Step | OnePlus 13R (Adreno 750, Turnip) | Poco X6 Pro (Mali-G615, PanVK) |
+|---|---|---|
+| Onboarding, storage grant (MANAGE_EXTERNAL_STORAGE allow) | pass | pass |
+| Debian + XFCE install | pass, ~458 s | pass, ~705 s |
+| GPU marker | `turnip_version` 26.3.0-devel-20260824 | `panvk_version` 0.1.0-beta.17 |
+| Phantom dialog (readable, fix applied) | pass (adb fix) | pass (Shizuku fix, status "Disabled (fixed)") |
+| Terminal (no python in ps, `/sdcard` real + writable) | pass | pass, opens in ~2.5 s |
+| `vulkaninfo` | Turnip Adreno 750 | Mali-G615 MC6, panvk beta.17 |
+| XFCE HW (`glxinfo -B`, glxgears) | FD750 kgsl, 120 FPS | zink on PanVK, ~103 FPS |
+| Chromium install + typing | pass | pass |
+| KDE install via app | pass, ~630 s | pass, ~564 s + 2nd phase |
+| KDE launch HW, compositing off | pass, 118 FPS | FAIL first run (RAM exhaustion), pass after fix, 215 FPS |
+| Settings (shared storage Allowed, process killer Disabled) | pass | pass |
+| GPU driver dialog | pass (installed vs latest shown) | not checked |
+| Legacy proot launcher toggle | pass | pass (toggled back off) |
+| Update path (`adb install -r`, relaunch) | pass | pass |
+| Chroot | not tested | not tested (needs KernelSU grant tap) |
+
+### Bugs
+- [x] KDE on PanVK killed the app: every Qt process (kded, ksmserver, plasmashell, ...) opened its own `/dev/mali0` device, about 260 MB each, 24 at login; MemAvailable fell 3.3 GB to 67 MB in ~15 s and the app plus cached apps were killed. `QT_QUICK_BACKEND=software` alone was not enough (xcb GLX probe opens the device). Fix: `fix(desktop): stop KDE on PanVK exhausting RAM with per-process Mali devices` (5ff5b45) exports `QT_QUICK_BACKEND=software QT_XCB_GL_INTEGRATION=none` when GPU_MODE=panvk and compositing is off. After: 12 Mali holders, ~2.8 GB free, KDE stable. Non-Qt GL (glxinfo, glxgears) still uses zink.
+- [ ] Stale "Debian desktop is running" card: after the app is force-stopped or killed, relaunch shows Open/Stop/Logs until Stop is tapped. No liveness check.
+- [ ] KDE GPU picker tags Hardware "Needs driver" even with the driver installed.
+- [ ] KDE session on both phones loops obexd / evolution-data-server dbus respawns (log noise).
+- [ ] OnePlus KDE died once after ~60 s (not reproduced, cause unknown, log uninformative). Second run stable 120 s+.
+
+### Not verified
+Chroot on both phones; OnePlus phantom restore and `/sdcard` cleanup (phone left adb mid-test); Poco GPU driver dialog.
