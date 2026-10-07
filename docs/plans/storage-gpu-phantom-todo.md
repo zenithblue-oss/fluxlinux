@@ -103,9 +103,9 @@ Fresh install of the ivarna debug APK, onboarding through the UI, Debian + XFCE 
 
 ### Bugs
 - [x] KDE on PanVK killed the app: every Qt process (kded, ksmserver, plasmashell, ...) opened its own `/dev/mali0` device, about 260 MB each, 24 at login; MemAvailable fell 3.3 GB to 67 MB in ~15 s and the app plus cached apps were killed. `QT_QUICK_BACKEND=software` alone was not enough (xcb GLX probe opens the device). Fix: `fix(desktop): stop KDE on PanVK exhausting RAM with per-process Mali devices` (5ff5b45) exports `QT_QUICK_BACKEND=software QT_XCB_GL_INTEGRATION=none` when GPU_MODE=panvk and compositing is off. After: 12 Mali holders, ~2.8 GB free, KDE stable. Non-Qt GL (glxinfo, glxgears) still uses zink.
-- [ ] Stale "Debian desktop is running" card: after the app is force-stopped or killed, relaunch shows Open/Stop/Logs until Stop is tapped. No liveness check.
-- [ ] KDE GPU picker tags Hardware "Needs driver" even with the driver installed.
-- [ ] KDE session on both phones loops obexd / evolution-data-server dbus respawns (log noise).
+- [x] Stale "Debian desktop is running" card: no liveness check. Fixed (319b9e8): `DesktopSessionQuery.reconcileStale` on Home resume connects to host `usr/tmp/.X11-unix/X0`; missing/refused clears prefs + stale socket/lock. Works for proot and chroot (no su). Poco: force-stop + relaunch shows no card; background + relaunch with live desktop still shows Running.
+- [x] KDE GPU picker hardcoded "Needs driver". Fixed (ba019d6): `GpuDriverInstaller.badge` from recorded installed version ("PanVK 0.1.0-beta.17" on Poco), "Software fallback" when not eligible. XFCE has no picker.
+- [ ] KDE session on both phones loops obexd / evolution-data-server dbus respawns (log noise). Skipped: needs guest autostart overrides, cannot verify safely without touching the rootfs.
 - [ ] OnePlus KDE died once after ~60 s (not reproduced, cause unknown, log uninformative). Second run stable 120 s+.
 
 ### Not verified
