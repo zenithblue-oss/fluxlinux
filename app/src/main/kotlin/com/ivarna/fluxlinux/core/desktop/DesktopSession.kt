@@ -1,6 +1,11 @@
 package com.ivarna.fluxlinux.core.desktop
 
 import android.content.Context
+import android.net.LocalSocket
+import android.net.LocalSocketAddress
+import com.ivarna.fluxlinux.core.terminal.TermuxHostPaths
+import java.io.File
+import java.io.IOException
 import com.ivarna.fluxlinux.core.data.DistroRepository
 import com.ivarna.fluxlinux.core.utils.StateManager
 
@@ -57,6 +62,41 @@ object DesktopSessionQuery {
         }
 
         return null
+    }
+
+    private fun xSocket() = File(TermuxHostPaths.FILES, "usr/tmp/.X11-unix/X0")
+
+    /**
+     * Host X server liveness without su or pids: works for proot and chroot (both bind the
+     * same host socket). Dead = socket missing or connection refused; anything else
+     * (e.g. EACCES) counts as alive so a live session is never cleared by mistake.
+     */
+    fun xServerAlive(sock: File = xSocket()): Boolean {
+        if (!sock.exists()) return false
+        return try {
+            LocalSocket().use {
+                it.connect(LocalSocketAddress(sock.absolutePath, LocalSocketAddress.Namespace.FILESYSTEM))
+            }
+            true
+        } catch (e: IOException) {
+            e.message?.let { it.contains("refused", true) || it.contains("No such file", true) } != true
+        }
+    }
+
+    /** Clear a session pref left behind after the app/X server was killed. Blocking-ish: off main. */
+    fun reconcileStale(context: Context) {
+        if (DesktopLauncher.isSessionActive()) return
+        val ids = StateManager.getDistrosWithGuiRunning(context)
+        if (ids.isEmpty() || xServerAlive()) return
+        // ponytail: re-check narrows (does not close) the race with a start finishing meanwhile
+        if (DesktopLauncher.isSessionActive()) return
+        ids.forEach {
+            StateManager.setGuiRunning(context, it, false)
+            StateManager.setGuiRunningType(context, it, "")
+        }
+        val sock = xSocket()
+        sock.delete()
+        File(sock.parentFile?.parentFile, ".X0-lock").delete()
     }
 
     private fun resolveDistroName(id: String): String {

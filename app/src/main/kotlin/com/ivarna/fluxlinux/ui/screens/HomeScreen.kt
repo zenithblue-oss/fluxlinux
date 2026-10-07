@@ -202,7 +202,13 @@ fun HomeScreen(
         val lifecycleOwner = LocalLifecycleOwner.current
         DisposableEffect(lifecycleOwner) {
             val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) probeRoot(force = true)
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    probeRoot(force = true)
+                    // Drop a "desktop running" card whose X server died with the app.
+                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        DesktopSessionQuery.reconcileStale(context)
+                    }
+                }
             }
             lifecycleOwner.lifecycle.addObserver(observer)
             onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
