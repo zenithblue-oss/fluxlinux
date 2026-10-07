@@ -16,6 +16,9 @@ class GpuDriverBadgeTest {
         assertEquals("Needs driver", GpuDriverInstaller.badge(GpuAccelDetector.MODE_PANVK, "x", null))
     }
 
-    @Test fun notEligible() =
-        assertEquals("Software fallback", GpuDriverInstaller.badge("virgl", "1", "1"))
+    @Test fun virgl() =
+        assertEquals("VirGL", GpuDriverInstaller.badge(GpuAccelDetector.MODE_VIRGL, "1", "1"))
+
+    @Test fun unknownMode() =
+        assertEquals("Software fallback", GpuDriverInstaller.badge("other", "1", "1"))
 }

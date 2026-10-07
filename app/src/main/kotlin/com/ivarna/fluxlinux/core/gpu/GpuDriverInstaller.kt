@@ -133,6 +133,7 @@ object GpuDriverInstaller {
         mode == GpuAccelDetector.MODE_TURNIP ->
             turnip?.let { "Turnip ${it.substringBefore("-devel")}" } ?: "Needs driver"
         mode == GpuAccelDetector.MODE_PANVK -> panvk?.let { "PanVK $it" } ?: "Needs driver"
+        mode == GpuAccelDetector.MODE_VIRGL -> "VirGL"
         else -> "Software fallback"
     }
 
