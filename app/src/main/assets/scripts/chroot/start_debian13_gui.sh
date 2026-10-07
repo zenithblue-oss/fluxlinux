@@ -192,6 +192,17 @@ if [ -e /etc/fluxlinux/kde_gl ]; then case "$GPU_MODE" in turnip|panvk)
   fi
   ;;
 esac; fi
+# Persist compositing/effects off in the user config (like XFCE use_compositing=false);
+# idempotent, keeps other keys. Opt-in O2 turns compositing back on.
+_kw=$(command -v kwriteconfig6 || command -v kwriteconfig5)
+if [ -n "$_kw" ]; then
+  if [ "$KWIN_COMPOSE" = O2 ]; then $_kw --file kwinrc --group Compositing --key Enabled true
+  else
+    $_kw --file kwinrc --group Compositing --key Enabled false
+    for _p in blur contrast slide translucency kwin4_effect_translucency; do $_kw --file kwinrc --group Plugins --key ${_p}Enabled false; done
+    $_kw --file kdeglobals --group KDE --key AnimationDurationFactor 0
+  fi
+fi
 KDE_EOF
   chmod 644 "$DEBIANPATH/usr/local/lib/fluxlinux/flux_kde_env.sh"
   FLUX_KDE_ENV="export XDG_RUNTIME_DIR=/home/$USERNAME/.cache/runtime; mkdir -p /home/$USERNAME/.cache/runtime; chmod 700 /home/$USERNAME/.cache/runtime; . /usr/local/lib/fluxlinux/flux_kde_env.sh"

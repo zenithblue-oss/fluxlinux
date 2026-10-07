@@ -137,6 +137,22 @@ VNCEOF
 chmod +x /home/flux/.vnc/xstartup
 chown -R flux:flux /home/flux/.vnc
 
+# Compositing + effects off system-wide by default (XFCE parity; GPU accel path).
+# Per-user config is kept in sync at session start (flux_kde_env.sh).
+mkdir -p /etc/xdg
+[ -e /etc/xdg/kwinrc ] || cat > /etc/xdg/kwinrc << 'KWEOF'
+[Compositing]
+Enabled=false
+
+[Plugins]
+blurEnabled=false
+contrastEnabled=false
+slideEnabled=false
+translucencyEnabled=false
+kwin4_effect_translucencyEnabled=false
+KWEOF
+[ -e /etc/xdg/kdeglobals ] || printf '[KDE]\nAnimationDurationFactor=0\n' > /etc/xdg/kdeglobals
+
 # 6. Disable SDDM (we use Termux:X11, not a display manager)
 systemctl disable sddm 2>/dev/null || true
 

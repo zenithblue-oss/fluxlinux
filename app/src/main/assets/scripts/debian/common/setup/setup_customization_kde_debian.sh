@@ -204,6 +204,7 @@ toolBarFont=JetBrainsMonoNerdFont,10,-1,5,50,0,0,0,0,0
 Theme=$SEL_ICON
 
 [KDE]
+AnimationDurationFactor=0
 LookAndFeelPackage=org.kde.breezedark.desktop
 ShowDeleteCommand=false
 SingleClick=false
@@ -228,6 +229,13 @@ cat > "$KDE_CONFIG/kwinrc" << EOF
 Backend=QPainter
 Enabled=false
 OpenGLIsUnsafe=true
+
+[Plugins]
+blurEnabled=false
+contrastEnabled=false
+slideEnabled=false
+translucencyEnabled=false
+kwin4_effect_translucencyEnabled=false
 
 [Windows]
 BorderlessMaximizedWindows=false
