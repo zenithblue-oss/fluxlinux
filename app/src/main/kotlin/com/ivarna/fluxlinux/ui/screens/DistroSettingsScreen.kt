@@ -90,20 +90,20 @@ fun DistroSettingsScreen(
     GlassScaffold(
         hazeState = hazeState,
         topBar = {
-            TopAppBar(
-                title = { 
+            CenterAlignedTopAppBar(
+                title = {
                     Text(
-                        "Manage ${distro.name}", 
-                        color = MaterialTheme.colorScheme.secondary, 
-                        fontWeight = FontWeight.Bold 
-                    ) 
+                        "Manage ${distro.name}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.secondary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.Transparent
                 ),
                 modifier = Modifier.hazeChild(state = hazeState, shape = androidx.compose.ui.graphics.RectangleShape, style = HazeMaterials.thin())
@@ -362,7 +362,7 @@ fun DistroSettingsScreen(
                             if (toUninstall != null) onUninstallComponent(toUninstall)
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF5252),
+                            containerColor = com.ivarna.fluxlinux.ui.theme.FluxDanger,
                             contentColor = Color.White
                         ),
                         modifier = Modifier.weight(1f)
@@ -422,7 +422,7 @@ fun DistroSettingsScreen(
                             onUninstallDistro()
                             showUninstallDialog = false
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252), contentColor = Color.White),
+                        colors = ButtonDefaults.buttonColors(containerColor = com.ivarna.fluxlinux.ui.theme.FluxDanger, contentColor = Color.White),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Uninstall")
@@ -570,7 +570,7 @@ fun SettingsThemeOption(name: String, desc: String, id: String, selected: Boolea
             .fillMaxWidth()
             .clickable { onSelect() }
             .padding(vertical = 8.dp)
-            .background(if(selected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.1f) else Color.Transparent, RoundedCornerShape(8.dp))
+            .background(if(selected) MaterialTheme.colorScheme.secondary.copy(alpha=0.16f) else Color.Transparent, RoundedCornerShape(8.dp))
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

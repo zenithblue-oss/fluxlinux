@@ -23,7 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -109,7 +109,7 @@ fun InstallConfigScreen(
     GlassScaffold(
         hazeState = hazeState,
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
                     Text(
                         when (phase) {
@@ -117,8 +117,8 @@ fun InstallConfigScreen(
                             InstallPhase.RUNNING -> if (failed) "Install failed" else "Installing…"
                             InstallPhase.DONE -> "Install complete"
                         },
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 },
                 navigationIcon = {
@@ -137,7 +137,7 @@ fun InstallConfigScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
                 modifier = Modifier.hazeChild(
                     state = hazeState,
                     shape = androidx.compose.ui.graphics.RectangleShape,
