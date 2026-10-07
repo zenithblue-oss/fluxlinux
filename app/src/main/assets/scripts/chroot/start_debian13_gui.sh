@@ -167,7 +167,34 @@ FLUX_KDE_ENV=
 if [ "${FLUX_DESKTOP:-xfce4}" = kde ]; then
   FLUX_DE_CMD=startplasma-x11
   # Qt/KDE reject /tmp as XDG_RUNTIME_DIR (wrong perms); use a private 0700 dir.
-  FLUX_KDE_ENV="export KWIN_COMPOSE=N QT_QPA_PLATFORMTHEME=kde XDG_RUNTIME_DIR=/home/$USERNAME/.cache/runtime; mkdir -p /home/$USERNAME/.cache/runtime; chmod 700 /home/$USERNAME/.cache/runtime"
+  # GPU env for KDE: zink OpenGL compositing on Turnip/PanVK, none on software.
+  mkdir -p "$DEBIANPATH/usr/local/lib/fluxlinux"
+  cat > "$DEBIANPATH/usr/local/lib/fluxlinux/flux_kde_env.sh" << 'KDE_EOF'
+# Sourced after flux_gpu_apply_runtime. Plasma 6 kwin_x11: O2 = desktop OpenGL.
+# OPT-IN (touch /etc/fluxlinux/kde_gl): KWin O2 on zink shows a black screen on
+# PanVK (Xlorie, verified Poco X6 Pro); Turnip unverified. Default stays N.
+export QT_QPA_PLATFORMTHEME=kde KWIN_COMPOSE=N
+if [ -e /etc/fluxlinux/kde_gl ]; then case "$GPU_MODE" in turnip|panvk)
+  export KWIN_COMPOSE=O2
+  _icd=/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json
+  if [ "$GPU_MODE" = turnip ] && [ "$MESA_LOADER_DRIVER_OVERRIDE" = kgsl ] && [ -r "$_icd" ]; then
+    export MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink VK_ICD_FILENAMES=$_icd
+    unset MESA_GL_VERSION_OVERRIDE MESA_GLES_VERSION_OVERRIDE
+    _o=$(timeout -k 2 30 glxinfo -B 2>/dev/null) || _o=
+    case "$_o" in
+      *zink*) echo "FluxLinux(guest): KDE GL = zink on Turnip" ;;
+      *)
+        echo "FluxLinux(guest): zink-on-Turnip probe failed - kgsl fallback"
+        unset GALLIUM_DRIVER VK_ICD_FILENAMES
+        export MESA_LOADER_DRIVER_OVERRIDE=kgsl MESA_GL_VERSION_OVERRIDE=4.6 MESA_GLES_VERSION_OVERRIDE=3.2
+        ;;
+    esac
+  fi
+  ;;
+esac; fi
+KDE_EOF
+  chmod 644 "$DEBIANPATH/usr/local/lib/fluxlinux/flux_kde_env.sh"
+  FLUX_KDE_ENV="export XDG_RUNTIME_DIR=/home/$USERNAME/.cache/runtime; mkdir -p /home/$USERNAME/.cache/runtime; chmod 700 /home/$USERNAME/.cache/runtime; . /usr/local/lib/fluxlinux/flux_kde_env.sh"
 fi
 # Guest script: sticky /tmp X11 + host-tmp VirGL + gpu_mode file
 $BB chroot "$DEBIANPATH" /bin/bash -c "

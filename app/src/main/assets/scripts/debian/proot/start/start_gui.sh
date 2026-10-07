@@ -326,7 +326,33 @@ BWRAP_EOF
     FLUX_KDE_ENV=
     if [ "$FLUX_DESKTOP" = kde ]; then
       FLUX_DE_CMD=startplasma-x11
-      FLUX_KDE_ENV="export KWIN_COMPOSE=N QT_QPA_PLATFORMTHEME=kde"
+      # GPU env for KDE: zink OpenGL compositing on Turnip/PanVK, none on software.
+      mkdir -p /usr/local/lib/fluxlinux
+      cat > /usr/local/lib/fluxlinux/flux_kde_env.sh << "KDE_EOF"
+# Sourced after flux_gpu_apply_runtime. Plasma 6 kwin_x11: O2 = desktop OpenGL.
+# OPT-IN (touch /etc/fluxlinux/kde_gl): KWin O2 on zink shows a black screen on
+# PanVK (Xlorie, verified Poco X6 Pro); Turnip unverified. Default stays N.
+export QT_QPA_PLATFORMTHEME=kde KWIN_COMPOSE=N
+if [ -e /etc/fluxlinux/kde_gl ]; then case "$GPU_MODE" in turnip|panvk)
+  export KWIN_COMPOSE=O2
+  _icd=/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json
+  if [ "$GPU_MODE" = turnip ] && [ "$MESA_LOADER_DRIVER_OVERRIDE" = kgsl ] && [ -r "$_icd" ]; then
+    export MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink VK_ICD_FILENAMES=$_icd
+    unset MESA_GL_VERSION_OVERRIDE MESA_GLES_VERSION_OVERRIDE
+    _o=$(timeout -k 2 30 glxinfo -B 2>/dev/null) || _o=
+    case "$_o" in
+      *zink*) echo "FluxLinux(guest): KDE GL = zink on Turnip" ;;
+      *)
+        echo "FluxLinux(guest): zink-on-Turnip probe failed - kgsl fallback"
+        unset GALLIUM_DRIVER VK_ICD_FILENAMES
+        export MESA_LOADER_DRIVER_OVERRIDE=kgsl MESA_GL_VERSION_OVERRIDE=4.6 MESA_GLES_VERSION_OVERRIDE=3.2
+        ;;
+    esac
+  fi
+  ;;
+esac; fi
+KDE_EOF
+      FLUX_KDE_ENV=". /usr/local/lib/fluxlinux/flux_kde_env.sh"
     fi
     FLUX_SU_SHELL=/bin/bash
     if [ ! -x /bin/bash ] && [ ! -x /usr/bin/bash ]; then
