@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,8 +46,15 @@ fun PhantomProcessDialog(warning: Boolean, onDismiss: () -> Unit) {
         msg = err?.let { "Failed: $it" } ?: "Applied. Restart the terminal/desktop."
     }
 
+    // App primary is near-black in dark / cream in light, so default Button/TextButton/OutlinedButton
+    // colors vanish on the dialog surface. Use secondary (cream in dark, dark in light) instead.
+    val cs = MaterialTheme.colorScheme
+    val btn = ButtonDefaults.buttonColors(containerColor = cs.secondary, contentColor = cs.onSecondary)
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = cs.surface,
+        titleContentColor = cs.onSurface,
+        textContentColor = cs.onSurface,
         title = { Text("Phantom process killer") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -66,6 +75,7 @@ fun PhantomProcessDialog(warning: Boolean, onDismiss: () -> Unit) {
                 msg?.let { Text(it, fontSize = 13.sp) }
                 Button(
                     modifier = Modifier.fillMaxWidth(),
+                    colors = btn,
                     onClick = {
                         msg = "Requesting root..."
                         scope.launch {
@@ -76,6 +86,7 @@ fun PhantomProcessDialog(warning: Boolean, onDismiss: () -> Unit) {
                 ) { Text("Fix with Root") }
                 Button(
                     modifier = Modifier.fillMaxWidth(),
+                    colors = btn,
                     onClick = {
                         fun run() = scope.launch {
                             val err = withContext(Dispatchers.IO) { PhantomProcessFixer.applyShizuku() }
@@ -95,6 +106,7 @@ fun PhantomProcessDialog(warning: Boolean, onDismiss: () -> Unit) {
                 Text(PhantomProcessFixer.adbCommands, fontSize = 11.sp)
                 OutlinedButton(
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = cs.secondary),
                     onClick = {
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         cm.setPrimaryClip(ClipData.newPlainText("ADB Commands", PhantomProcessFixer.adbCommands))
@@ -103,10 +115,10 @@ fun PhantomProcessDialog(warning: Boolean, onDismiss: () -> Unit) {
                 ) { Text("Copy adb commands") }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss, colors = ButtonDefaults.textButtonColors(contentColor = cs.secondary)) { Text("Close") } },
         dismissButton = if (warning) {
             {
-                TextButton(onClick = {
+                TextButton(colors = ButtonDefaults.textButtonColors(contentColor = cs.secondary), onClick = {
                     PhantomProcessFixer.hideWarningForever(context)
                     onDismiss()
                 }) { Text("Don't show again") }
