@@ -351,6 +351,11 @@ if [ -e /etc/fluxlinux/kde_gl ]; then case "$GPU_MODE" in turnip|panvk)
   fi
   ;;
 esac; fi
+# PanVK: every Qt process (kded, ksmserver, plasmashell...) opened its own Mali device
+# (~260 MB each, 24 at login); the session OOM-killed the app on a 7.5 GB Poco X6 Pro.
+# Compositing is off, so Qt needs no GL: software Quick + no xcb GL probe. Non-Qt GL
+# (glxinfo, glxgears) still uses zink; GL Qt apps: env -u QT_XCB_GL_INTEGRATION -u QT_QUICK_BACKEND.
+case "$GPU_MODE:$KWIN_COMPOSE" in panvk:N) export QT_QUICK_BACKEND=software QT_XCB_GL_INTEGRATION=none;; esac
 # Persist compositing/effects off in the user config (like XFCE use_compositing=false);
 # idempotent, keeps other keys. Opt-in O2 turns compositing back on.
 _kw=$(command -v kwriteconfig6 || command -v kwriteconfig5)
