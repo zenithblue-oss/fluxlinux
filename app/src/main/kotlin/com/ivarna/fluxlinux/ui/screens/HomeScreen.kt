@@ -898,6 +898,10 @@ private fun KdeGpuPickerDialog(
     onSelectHardware: () -> Unit,
     onSelectSoftware: () -> Unit
 ) {
+    val ctx = LocalContext.current
+    val driverBadge = remember(distro.id) {
+        com.ivarna.fluxlinux.core.gpu.GpuDriverInstaller.badge(ctx, distro.id)
+    }
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -982,7 +986,7 @@ private fun KdeGpuPickerDialog(
                         subtitle = "Installed GPU driver",
                         description = "Turnip / PanVK / VirGL, whichever is installed. Best performance.",
                         accentColor = Color(0xFFFF6F00),
-                        badgeText = "Needs driver",
+                        badgeText = driverBadge,
                         onClick = onSelectHardware
                     )
 

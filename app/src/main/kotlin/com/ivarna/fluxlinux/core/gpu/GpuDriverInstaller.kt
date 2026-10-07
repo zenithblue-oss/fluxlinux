@@ -122,6 +122,20 @@ object GpuDriverInstaller {
         prefs(ctx).getString("installed_$distroId", null)
     fun latestVersion(ctx: Context): String? = prefs(ctx).getString("latest", null)
 
+    /** Hardware-option tag from the recorded driver state: "Turnip 26.3.0", "PanVK 0.1.0-beta.17", ... */
+    fun badge(ctx: Context, distroId: String): String = badge(
+        GpuAccelDetector.detect().mode,
+        installedVersion(ctx, distroId),
+        PanvkInstaller.installedVersion(ctx, distroId)
+    )
+
+    internal fun badge(mode: String, turnip: String?, panvk: String?): String = when {
+        mode == GpuAccelDetector.MODE_TURNIP ->
+            turnip?.let { "Turnip ${it.substringBefore("-devel")}" } ?: "Needs driver"
+        mode == GpuAccelDetector.MODE_PANVK -> panvk?.let { "PanVK $it" } ?: "Needs driver"
+        else -> "Software fallback"
+    }
+
     fun updateAvailable(ctx: Context, distroId: String): Boolean {
         val latest = latestVersion(ctx) ?: return false
         val have = installedVersion(ctx, distroId) ?: return true
