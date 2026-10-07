@@ -903,7 +903,7 @@ fun PrerequisiteItem(
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Download v0.118.3 (GitHub)", color = Color.White, fontSize = 14.sp)
+                            Text("Download v0.118.3 (GitHub)", color = Color.Black, fontSize = 14.sp)
                         }
                     }
                 }
@@ -2045,7 +2045,7 @@ fun SystemCheckStep(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Go to Settings", color = Color.White, fontSize = 14.sp)
+                                Text("Go to Settings", color = androidx.compose.material3.MaterialTheme.colorScheme.onError, fontSize = 14.sp)
                             }
                         }
                     }

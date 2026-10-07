@@ -112,7 +112,9 @@ import com.ivarna.fluxlinux.ui.theme.FluxAccentCyan
 import com.ivarna.fluxlinux.ui.theme.FluxAccentMagenta
 import com.ivarna.fluxlinux.ui.theme.FluxDarkGrey
 import com.ivarna.fluxlinux.ui.theme.FluxDarkSurface
+import com.ivarna.fluxlinux.ui.theme.FluxBodyMuted
 import com.ivarna.fluxlinux.ui.theme.FluxHairline
+import com.ivarna.fluxlinux.ui.theme.FluxSwitchUncheckedTrack
 import com.ivarna.fluxlinux.ui.theme.fluxMutedText
 
 private enum class OnboardStep { Welcome, Consent, HostSetup, DistroPick, Options, Storage, Running, Done }
@@ -1737,8 +1739,8 @@ private fun FluxPrimaryButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = BrandCream,
             contentColor = FluxDarkGrey,
-            disabledContainerColor = BrandCream.copy(alpha = 0.35f),
-            disabledContentColor = FluxDarkGrey.copy(alpha = 0.45f)
+            disabledContainerColor = FluxSwitchUncheckedTrack,
+            disabledContentColor = FluxBodyMuted
         ),
         shape = RoundedCornerShape(14.dp)
     ) {

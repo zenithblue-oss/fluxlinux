@@ -338,8 +338,8 @@ fun ProotStorageDetailScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accent,
                     contentColor = MaterialTheme.colorScheme.onSecondary,
-                    disabledContainerColor = accent.copy(alpha = 0.35f),
-                    disabledContentColor = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.7f)
+                    disabledContainerColor = com.ivarna.fluxlinux.ui.theme.FluxSwitchUncheckedTrack,
+                    disabledContentColor = com.ivarna.fluxlinux.ui.theme.FluxBodyMuted
                 ),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {

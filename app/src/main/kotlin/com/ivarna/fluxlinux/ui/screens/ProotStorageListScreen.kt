@@ -360,8 +360,8 @@ fun ProotStorageListScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accent,
                     contentColor = MaterialTheme.colorScheme.onSecondary,
-                    disabledContainerColor = accent.copy(alpha = 0.35f),
-                    disabledContentColor = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.7f)
+                    disabledContainerColor = com.ivarna.fluxlinux.ui.theme.FluxSwitchUncheckedTrack,
+                    disabledContentColor = com.ivarna.fluxlinux.ui.theme.FluxBodyMuted
                 ),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
@@ -369,7 +369,7 @@ fun ProotStorageListScreen(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onSecondary
+                        color = com.ivarna.fluxlinux.ui.theme.FluxBodyMuted
                     )
                     Spacer(Modifier.size(8.dp))
                 }

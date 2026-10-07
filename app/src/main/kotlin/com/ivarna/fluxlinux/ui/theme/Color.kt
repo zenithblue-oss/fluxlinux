@@ -34,6 +34,7 @@ val Seed = Color(0xFF00E5FF)
 val FluxBodyMuted = Color(0xFFC8C8C8)          // ~10:1 on #121212
 val FluxHairline = Color(0x33FFFFFF)
 val FluxCardFill = Color(0xE61A1C1E)           // 90% surface
+val FluxDanger = Color(0xFFC62828)             // white on it ~5.6:1
 val FluxSwitchCheckedTrack = BrandCream        // #F5E6CA
 val FluxSwitchCheckedThumb = FluxDarkGrey
 val FluxSwitchUncheckedTrack = Color(0xFF3A3A3A)

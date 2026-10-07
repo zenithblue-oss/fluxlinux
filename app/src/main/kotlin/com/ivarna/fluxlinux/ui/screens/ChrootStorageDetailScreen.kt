@@ -639,7 +639,7 @@ fun ChrootStorageDetailScreen(
                             enabled = killEnabled,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = Color.White,
+                                contentColor = MaterialTheme.colorScheme.onError,
                                 disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                 disabledContentColor = muted
                             ),
@@ -696,8 +696,8 @@ fun ChrootStorageDetailScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accent,
                     contentColor = MaterialTheme.colorScheme.onSecondary,
-                    disabledContainerColor = accent.copy(alpha = 0.35f),
-                    disabledContentColor = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.7f)
+                    disabledContainerColor = com.ivarna.fluxlinux.ui.theme.FluxSwitchUncheckedTrack,
+                    disabledContentColor = com.ivarna.fluxlinux.ui.theme.FluxBodyMuted
                 ),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {

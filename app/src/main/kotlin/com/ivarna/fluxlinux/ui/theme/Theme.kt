@@ -17,11 +17,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 // Fallback Dark Scheme (Dark Grey Primary, Cream Secondary)
-// Note: primary is intentionally dark for filled surfaces; TextButtons must set
-// contentColor to secondary/cream or they become invisible on dark backgrounds.
+// Note: primary is cream (same as light scheme) so default Material controls
+// (TextButton, Checkbox, progress, filled Button) stay visible on dark backgrounds.
 private val DarkColorScheme = darkColorScheme(
-    primary = FluxDarkGrey,
-    onPrimary = TextWhite,
+    primary = BrandCream,
+    onPrimary = FluxDarkGrey,
     secondary = BrandCream, // Light Secondary for Dark Mode (High Contrast)
     onSecondary = FluxDarkGrey,
     tertiary = FluxAccentMagenta,
@@ -63,8 +63,8 @@ fun FluxLinuxTheme(
             if (darkTheme) {
                 // Use Dynamic Dark but override Primary & Secondary
                 dynamicDarkColorScheme(context).copy(
-                    primary = FluxDarkGrey,
-                    onPrimary = TextWhite,
+                    primary = BrandCream,
+                    onPrimary = FluxDarkGrey,
                     secondary = BrandCream, // Light Secondary for Dark Mode
                     onSecondary = FluxDarkGrey,
                     background = FluxDarkSurface,

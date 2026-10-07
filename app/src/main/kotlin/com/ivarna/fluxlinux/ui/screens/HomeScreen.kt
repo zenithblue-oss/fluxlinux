@@ -569,7 +569,7 @@ fun HomeScreen(
                             label = if (runningType == "kde") "Stop KDE Plasma" else "Stop XFCE4",
                             subtitle = "End desktop session",
                             containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = Color.White,
+                            contentColor = MaterialTheme.colorScheme.onError,
                             onClick = {
                                 DesktopLauncher.stop(context, distro.id)
                                 distroToLaunch.value = null

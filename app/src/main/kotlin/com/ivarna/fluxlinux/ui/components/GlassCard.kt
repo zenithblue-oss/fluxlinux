@@ -241,7 +241,7 @@ fun DistroCard(
                             label = "Stop",
                             icon = Icons.Default.Stop,
                             onClick = onStop,
-                            containerColor = Color(0xFFFF5252),
+                            containerColor = com.ivarna.fluxlinux.ui.theme.FluxDanger,
                             contentColor = Color.White,
                             modifier = Modifier.weight(0.85f)
                         )
