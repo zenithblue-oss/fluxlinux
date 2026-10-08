@@ -1,6 +1,8 @@
-- Faster terminal start; root (chroot) work moved off the UI thread
-- PRoot terminal launches directly, without proot-distro Python
-- Fix crash on install/terminal notifications on HyperOS (#42, #46)
-- All native libraries 16 KB page aligned
-- terminal-emulator built from source
-- All native code built from source without Docker (F-Droid)
+- Faster terminal, direct proot launch
+- Shared storage access + onboarding (#48, #29)
+- Phantom process fix via Shizuku/root/adb (#41)
+- Turnip auto-install (Adreno), PanVK (MediaTek Mali v10+)
+- KDE on built-in X11; Chromium typing fix (#45)
+- Notification crash fix (#42, #46); UI contrast
+- v1 Termux leftover notice (#37)
+- 16 KB aligned libs; native code and terminal-emulator built from source, no Docker

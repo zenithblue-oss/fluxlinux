@@ -1,32 +1,28 @@
-# v2.0.0
+# v2.0.1
 
 ## What's Changed
 
 ### Features
-- Embed the Termux-prefix host and X11 server — no external Termux APK required
-- Multi-distro catalog (12 guests) with on-demand GitHub `rootfs` downloads (SHA256-gated)
-- Host PulseAudio as the app uid; guests are TCP clients on 127.0.0.1
-- W^X-safe exec of host bins from `nativeLibraryDir` (targetSdk 36)
-- Settings → PRoot / Chroot storage list, size, and stop
-- Settings → Legacy Termux leftover management for ≤ v1.8.0 containers
-- Universal guest login shell toggle (bash / zsh)
-- Chroot uses Magisk/KernelSU/APatch BusyBox — no NDK BusyBox module
-- Compile `libXlorie.so` from source (NDK 29 + CMake, 16 submodules)
-- F-Droid recipe for flavor `ivarna` (`submodules: true`, scanner-accurate `scanignore`)
+- Terminal starts faster; PRoot sessions launch directly (no proot-distro Python), chroot prep runs off the UI thread
+- Shared storage access in guests (all-files access) and a new onboarding page (#48, #29)
+- Disable the Android phantom-process killer via Shizuku, root or adb (#41)
+- Auto-install Mesa Turnip on Adreno and PanVK on MediaTek Mali v10+ (with fallback and retry)
+- KDE runs on the built-in X11 server; compositing and effects off by default; opt-in zink GL on Turnip/PanVK
+- One-time notice that v1.x Termux distros were not removed on upgrade (#37)
 
 ### Bug Fixes
-- Align `LorieView` JNI with the native per-instance API (`nativeInit()J`) so X11 display opens
-- Fedora chroot flux login via staged `setuidgid` (no `chroot --userspec` on Android busybox)
-- Host Pulse start/stop/query without PREFIX exec or root
-- Restore `loader.apk` after the F-Droid scanner deletes `*.apk` (`loader.bin` twin)
+- Crash on foreground-service notifications (monochrome small icon) (#42, #46)
+- Chromium/Electron typing in X11 (#45)
+- Host env and paths refresh after an app update and on app start
+- Desktop waits for the X socket; stale running-desktop state is cleared
+- KDE on PanVK no longer exhausts RAM
+- UI contrast in dark/light themes, unified top bars, correct GPU tag in the distro picker
 
-### F-Droid
-- `gradle: [ivarna]`; do not compile termux-packages on `buildserver-trixie`
-- Lint + scanner 0 problems; `assembleIvarnaRelease` SUCCESS on the F-Droid image
-
-## Migration Notes
-External Termux is no longer required. Rootfs archives leave the APK and download from the GitHub `rootfs` tag. Leftover v1.8.0 Termux PRoot trees: Settings → Legacy Termux.
+### Build / F-Droid
+- All native code (host packages, loader.apk, guest helpers, terminal-emulator, libXlorie) is built from source without Docker
+- All native libraries are 16 KB page aligned
+- Reproducible release: the APK is built from the tagged commit with the F-Droid recipe (`com.ivarna.fluxlinux.yml`) and signed with the release key
 
 ## Verification
-- Version 2.0.0 (versionCode 12): `app/build.gradle.kts`, `com.ivarna.fluxlinux.yml`, `fastlane/README.md`, `fastlane/.../changelogs/12.txt`.
-- Release APK built from the tagged commit; GitHub asset name `app-release.apk` (F-Droid `Binaries:`).
+- Version 2.0.1 (versionCode 13): `app/build.gradle.kts`, `com.ivarna.fluxlinux.yml`, `fastlane/.../changelogs/13.txt`.
+- GitHub asset `app-release.apk` (F-Droid `Binaries:`) is byte-identical to the F-Droid build apart from the signature (`apksigcopier compare`).

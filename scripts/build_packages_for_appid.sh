@@ -121,6 +121,12 @@ if [[ "${NO_DOCKER:-0}" == "1" ]]; then
   # is byte-identical and termux still checks TERMUX_PKG_SHA256.
   sed -i 's|https://www.freedesktop.org/software/pulseaudio/webrtc-audio-processing/webrtc-audio-processing-${TERMUX_PKG_VERSION}.tar.gz|https://deb.debian.org/debian/pool/main/w/webrtc-audio-processing/webrtc-audio-processing_${TERMUX_PKG_VERSION}.orig.tar.gz|' \
     "$TP/packages/libwebrtc-audio-processing/build.sh"
+  # termux_setup_build_python cd's into the host-python cache dir on a cold cache
+  # and never returns, so python's `autoreconf -fi` ran there instead of in the
+  # target source (install-sh differed between cold and warm cache builds).
+  # Always return to the source dir so cold and warm builds are identical.
+  sed -i 's|^\([[:space:]]*termux_setup_build_python\)$|\1; cd "$TERMUX_PKG_SRCDIR"|' \
+    "$TP/packages/python/build.sh"
   echo "[*] NO_DOCKER=1 — building on host (NDK=${NDK:-<termux default>})" | tee -a "$LOG"
 else
   BUILDER=(./scripts/run-docker.sh ./build-package.sh)

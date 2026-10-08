@@ -9,14 +9,14 @@ Categories:
 License: GPL-3.0-only
 AuthorName: Abhay Raj
 AuthorWebSite: https://github.com/abhay-byte
-SourceCode: https://github.com/abhay-byte/fluxlinux
-IssueTracker: https://github.com/abhay-byte/fluxlinux/issues
+SourceCode: https://github.com/zenithblue-oss/fluxlinux
+IssueTracker: https://github.com/zenithblue-oss/fluxlinux/issues
 
 AutoName: FluxLinux
 
 RepoType: git
-Repo: https://github.com/abhay-byte/fluxlinux
-Binaries: https://github.com/abhay-byte/fluxlinux/releases/download/v%v/app-release.apk
+Repo: https://github.com/zenithblue-oss/fluxlinux
+Binaries: https://github.com/zenithblue-oss/fluxlinux/releases/download/v%v/app-release.apk
 
 Builds:
   - versionName: '1.6'
@@ -101,6 +101,8 @@ Builds:
     scanignore:
       - assets/xfce4/
       - assets/wallpaper/
+      - native/termux-packages/packages/python-torch/0011-dlopen-libc.so.patch
+      - native/termux-packages/packages/sideloader/plist-d-Add-filename-for-termux-libplist-2.0.so.diff
     scandelete:
       - native/bootstrap/
       - app/src/ivarna/assets/pulse-runtime/
