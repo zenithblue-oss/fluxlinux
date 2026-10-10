@@ -469,7 +469,9 @@ fun HomeScreen(
                                 val payload = "echo '$scriptB64' | base64 -d | bash"
                                 com.ivarna.fluxlinux.core.terminal.FluxTerminalSessionManager.openSessionAfterHost(
                                     context,
-                                    type = "shell",
+                                    // Root session: the model lives in /root/models, which the default
+                                    // "shell" user (flux) cannot read.
+                                    type = "shell-root",
                                     title = "Qwen2.5-1.5B",
                                     shellCmd = payload,
                                     method = com.ivarna.fluxlinux.core.data.terminalComponentFor(distro.id).method,

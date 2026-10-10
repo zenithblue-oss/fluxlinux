@@ -43,4 +43,8 @@ echo "Type your message and press Enter. Ctrl+C to exit."
 echo "-------------------------------------------"
 echo ""
 
-exec $LAUNCHER -m "$MODEL_PATH" -cnv -ngl 99
+# -ub 32: on Adreno/Turnip, llama.cpp's Vulkan batched matmul returns garbage for
+# micro-batches over 32 tokens, so any longer prompt or message has to be chunked.
+# </dev/tty: the app runs this script as `... | base64 -d | bash`, so stdin is the
+# script pipe; without reattaching the terminal, llama-cli hits EOF and spins on '>'.
+exec $LAUNCHER -m "$MODEL_PATH" -cnv -ngl 99 -ub 32 </dev/tty

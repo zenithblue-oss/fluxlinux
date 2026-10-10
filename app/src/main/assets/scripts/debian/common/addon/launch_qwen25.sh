@@ -41,11 +41,40 @@ else
 fi
 echo " [✅] llama.cpp found."
 
+# --- Self-test helper ---
+# Newer llama.cpp builds make llama-cli chat-only (it never exits on its own), so
+# the one-shot self-tests use llama-completion with a raw ChatML prompt.
+# The test asks a question with one deterministic answer (temp 0) so that neither
+# a chatty-but-valid reply fails it nor corrupted output passes it by chance.
+# The prompt is deliberately longer than 32 tokens: on Adreno/Turnip, llama.cpp's
+# Vulkan batched matmul returns garbage for micro-batches over 32 tokens, so the
+# test has to exercise the same -ub 32 chunking as the chat session below.
+if command -v llama-completion &>/dev/null; then
+    TEST_BIN="llama-completion"
+else
+    TEST_BIN="llama-cli"
+fi
+TEST_PROMPT=$'<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nWhat is 2+2? Answer with just the number.<|im_end|>\n<|im_start|>assistant\n'
+
+run_self_test() {
+    # $1 = optional wrapper (llama-vulkan), $2 = -ngl value
+    # Prints only the model's reply: llama-vulkan echoes its own (multi-line) command
+    # line first, so keep just the last non-empty line of output.
+    $1 $TEST_BIN -m "$MODEL_PATH" -ngl "$2" -ub 32 -p "$TEST_PROMPT" -n 8 --temp 0 \
+        -no-cnv --no-display-prompt </dev/null 2>/dev/null \
+        | tr -cd '[:print:][:space:]' | sed 's/\[end of text\]//' \
+        | awk 'NF { last = $0 } END { print last }'
+}
+
+self_test_passed() {
+    echo "$1" | grep -qiE '^[[:space:]]*(4|four)\b'
+}
+
 # --- Test CPU first to verify model integrity ---
 echo ""
 echo "Testing model with CPU (verifying file integrity)..."
-CPU_OUTPUT=$(llama-cli -m "$MODEL_PATH" -ngl 0 -p "Say OK" -n 10 --temp 0.1 --no-display-prompt 2>/dev/null | tr -cd '[:print:][:space:]' | head -20)
-if echo "$CPU_OUTPUT" | grep -qi "ok\|hello\|hi\|i am"; then
+CPU_OUTPUT=$(run_self_test "" 0)
+if self_test_passed "$CPU_OUTPUT"; then
     echo " [✅] CPU test passed. Model file is valid."
 else
     echo " [❌] CPU test failed. Model output is corrupted."
@@ -60,8 +89,8 @@ fi
 # --- Test GPU ---
 echo ""
 echo "Testing GPU inference..."
-GPU_OUTPUT=$(llama-vulkan llama-cli -m "$MODEL_PATH" -ngl 99 -p "Say OK" -n 10 --temp 0.1 --no-display-prompt 2>/dev/null | tr -cd '[:print:][:space:]' | head -20)
-if echo "$GPU_OUTPUT" | grep -qi "ok\|hello\|hi\|i am"; then
+GPU_OUTPUT=$(run_self_test llama-vulkan 99)
+if self_test_passed "$GPU_OUTPUT"; then
     echo " [✅] GPU test passed. Using GPU acceleration."
     GPU_LAYERS=99
 else
@@ -84,10 +113,15 @@ echo "Type your prompt and press Enter. Ctrl+C to exit."
 echo "-------------------------------------------"
 echo ""
 
+# -ub 32: on Adreno/Turnip, llama.cpp's Vulkan batched matmul returns garbage for
+# micro-batches over 32 tokens, so any longer prompt or message has to be chunked.
+# </dev/tty: the app runs this script as `... | base64 -d | bash`, so stdin is the
+# script pipe; without reattaching the terminal, llama-cli hits EOF and spins on '>'.
 exec llama-vulkan llama-cli -m "$MODEL_PATH" \
     -ngl $GPU_LAYERS \
+    -ub 32 \
     -c 4096 \
     --temp 0.7 \
     -n 512 \
     --no-display-prompt \
-    -p "You are Qwen, a helpful assistant. User: Hello! Assistant:"
+    -p "You are Qwen, a helpful assistant. User: Hello! Assistant:" </dev/tty
